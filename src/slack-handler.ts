@@ -38,6 +38,7 @@ export class SlackHandler {
   private todoMessages: Map<string, string> = new Map(); // sessionKey -> messageTs
   private originalMessages: Map<string, { channel: string; ts: string }> = new Map(); // sessionKey -> original message info
   private currentReactions: Map<string, string> = new Map(); // sessionKey -> current emoji
+  private activeAnimations: Map<string, () => void> = new Map(); // sessionKey -> stop fn
   private botUserId: string | null = null;
 
   constructor(app: App, claudeHandler: ClaudeHandler, mcpManager: McpManager) {
@@ -189,9 +190,9 @@ export class SlackHandler {
 
     const sessionKey = this.claudeHandler.getSessionKey(user, channel, thread_ts || ts);
     
-    // Store the original message info for status reactions
-    const originalMessageTs = thread_ts || ts;
-    this.originalMessages.set(sessionKey, { channel, ts: originalMessageTs });
+    // React on the user message we just received. In a thread reply `thread_ts`
+    // points at the thread root, not the current message, so use `ts` directly.
+    this.originalMessages.set(sessionKey, { channel, ts });
     
     // Cancel any existing request for this conversation
     const existingController = this.activeControllers.get(sessionKey);
@@ -229,10 +230,14 @@ export class SlackHandler {
 
       // Send initial status message
       const statusResult = await say({
-        text: '🤔 *Thinking...*',
+        text: '🤔 *Thinking*',
         thread_ts: thread_ts || ts,
       });
       statusMessageTs = statusResult.ts;
+
+      // Animate the dots until the first stream event arrives.
+      const stopAnimation = this.animateThinking(channel, statusMessageTs!);
+      this.activeAnimations.set(sessionKey, stopAnimation);
 
       // Add thinking reaction to original message (but don't spam if already set)
       await this.updateMessageReaction(sessionKey, 'thinking_face');
@@ -254,9 +259,12 @@ export class SlackHandler {
         });
 
         if (message.type === 'assistant') {
+          // Stop the "Thinking..." animation — real work has started.
+          this.stopAnimation(sessionKey);
+
           // Check if this is a tool use message
           const hasToolUse = message.message.content?.some((part: any) => part.type === 'tool_use');
-          
+
           if (hasToolUse) {
             // Update status to show working
             if (statusMessageTs) {
@@ -322,6 +330,8 @@ export class SlackHandler {
         }
       }
 
+      this.stopAnimation(sessionKey);
+
       // Update status to completed
       if (statusMessageTs) {
         await this.app.client.chat.update({
@@ -344,9 +354,10 @@ export class SlackHandler {
         await this.fileHandler.cleanupTempFiles(processedFiles);
       }
     } catch (error: any) {
+      this.stopAnimation(sessionKey);
       if (error.name !== 'AbortError') {
         this.logger.error('Error handling message', error);
-        
+
         // Update status to error
         if (statusMessageTs) {
           await this.app.client.chat.update({
@@ -565,6 +576,44 @@ export class SlackHandler {
     if (result?.ts) {
       this.todoMessages.set(sessionKey, result.ts);
       this.logger.debug('Created new todo message', { sessionKey, messageTs: result.ts });
+    }
+  }
+
+  // Animate the "Thinking" status message until stopAnimation is called.
+  // Returns a function the caller can invoke to cancel the timer immediately.
+  private animateThinking(channel: string, statusTs: string): () => void {
+    const frames = [
+      '🤔 *Thinking*',
+      '💭 *Thinking.*',
+      '💭 *Thinking..*',
+      '💭 *Thinking...*',
+    ];
+    let i = 1; // first frame already posted, start at second
+    let cancelled = false;
+    const timer = setInterval(async () => {
+      if (cancelled) return;
+      try {
+        await this.app.client.chat.update({
+          channel,
+          ts: statusTs,
+          text: frames[i % frames.length],
+        });
+      } catch {
+        // Ignore — the message may have been edited or rate-limited.
+      }
+      i++;
+    }, 900);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }
+
+  private stopAnimation(sessionKey: string): void {
+    const stop = this.activeAnimations.get(sessionKey);
+    if (stop) {
+      stop();
+      this.activeAnimations.delete(sessionKey);
     }
   }
 
