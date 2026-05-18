@@ -1,37 +1,43 @@
 display_information:
-  name: Claude Code Bot
-  description: AI-powered coding assistant using Claude Code SDK
-  background_color: "#4A154B"
-  long_description: This bot integrates Claude Code SDK with Slack to provide AI-powered coding assistance directly in your workspace. It supports streaming responses, maintains conversation context, and can help with code reviews, debugging, and general programming questions.
+  name: AI Employee
+  description: An autonomous engineer that owns one module of test-claude-automation
+  background_color: "#0b1220"
+  long_description: AI Employee runs daily health checks on the persona module, posts weekly state-of-the-module memos to #ai-employee, opens draft PRs when it spots regressions, and runs /qa or /dev-team-hybrid on demand when @-mentioned. Bounded by a forbidden-zone allow-list and zero direct push to main.
 features:
   app_home:
     home_tab_enabled: false
     messages_tab_enabled: true
     messages_tab_read_only_enabled: false
   bot_user:
-    display_name: Claude Code
+    display_name: ai-employee
     always_online: true
 oauth_config:
   scopes:
     bot:
       - app_mentions:read
       - channels:history
+      - channels:read
       - chat:write
       - chat:write.public
+      - files:write
+      - groups:history
+      - groups:read
       - im:history
       - im:read
       - im:write
-      - users:read
       - reactions:read
       - reactions:write
+      - users:read
 settings:
   event_subscriptions:
     bot_events:
       - app_mention
+      - message.channels
+      - message.groups
       - message.im
       - member_joined_channel
   interactivity:
-    is_enabled: false
+    is_enabled: true
   org_deploy_enabled: false
   socket_mode_enabled: true
   token_rotation_enabled: false
