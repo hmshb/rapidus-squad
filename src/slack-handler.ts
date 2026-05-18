@@ -1,6 +1,6 @@
 import { App } from '@slack/bolt';
 import { ClaudeHandler } from './claude-handler';
-import { SDKMessage } from '@anthropic-ai/claude-code';
+import { SDKMessage } from './types';
 import { Logger } from './logger';
 import { WorkingDirectoryManager } from './working-directory-manager';
 import { FileHandler, ProcessedFile } from './file-handler';
@@ -280,7 +280,7 @@ export class SlackHandler {
             }
 
             // For other tool use messages, format them immediately as new messages
-            const toolContent = this.formatToolUse(message.message.content);
+            const toolContent = this.formatToolUse(message.message.content ?? []);
             if (toolContent) { // Only send if there's content (TodoWrite returns empty string)
               await say({
                 text: toolContent,
