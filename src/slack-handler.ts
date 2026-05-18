@@ -220,7 +220,7 @@ export class SlackHandler {
         ? await this.fileHandler.formatFilePrompt(processedFiles, text || '')
         : text || '';
 
-      this.logger.info('Sending query to Claude Code SDK', { 
+      this.logger.info('Sending query to Claude (subprocess)', {
         prompt: finalPrompt.substring(0, 200) + (finalPrompt.length > 200 ? '...' : ''), 
         sessionId: session.sessionId,
         workingDirectory,
@@ -235,7 +235,7 @@ export class SlackHandler {
       statusMessageTs = statusResult.ts;
 
       // Add thinking reaction to original message (but don't spam if already set)
-      await this.updateMessageReaction(sessionKey, '🤔');
+      await this.updateMessageReaction(sessionKey, 'thinking_face');
       
       // Create Slack context for permission prompts
       const slackContext = {
@@ -268,7 +268,7 @@ export class SlackHandler {
             }
 
             // Update reaction to show working
-            await this.updateMessageReaction(sessionKey, '⚙️');
+            await this.updateMessageReaction(sessionKey, 'gear');
 
             // Check for TodoWrite tool and handle it specially
             const todoTool = message.message.content?.find((part: any) => 
@@ -332,7 +332,7 @@ export class SlackHandler {
       }
 
       // Update reaction to show completion
-      await this.updateMessageReaction(sessionKey, '✅');
+      await this.updateMessageReaction(sessionKey, 'white_check_mark');
 
       this.logger.info('Completed processing message', {
         sessionKey,
@@ -357,7 +357,7 @@ export class SlackHandler {
         }
 
         // Update reaction to show error
-        await this.updateMessageReaction(sessionKey, '❌');
+        await this.updateMessageReaction(sessionKey, 'x');
         
         await say({
           text: `Error: ${error.message || 'Something went wrong'}`,
@@ -376,7 +376,7 @@ export class SlackHandler {
         }
 
         // Update reaction to show cancellation
-        await this.updateMessageReaction(sessionKey, '⏹️');
+        await this.updateMessageReaction(sessionKey, 'black_square_for_stop');
       }
 
       // Clean up temporary files in case of error too
@@ -633,11 +633,11 @@ export class SlackHandler {
 
     let emoji: string;
     if (completed === total) {
-      emoji = '✅'; // All tasks completed
+      emoji = 'white_check_mark';
     } else if (inProgress > 0) {
-      emoji = '🔄'; // Tasks in progress
+      emoji = 'arrows_counterclockwise';
     } else {
-      emoji = '📋'; // Tasks pending
+      emoji = 'clipboard';
     }
 
     await this.updateMessageReaction(sessionKey, emoji);
@@ -673,7 +673,7 @@ export class SlackHandler {
 
       const channelName = (channelInfo.channel as any)?.name || 'this channel';
       
-      let welcomeMessage = `👋 Hi! I'm Claude Code, your AI coding assistant.\n\n`;
+      let welcomeMessage = `👋 Hi! I'm Casey — autonomous engineer assigned to the persona module.\n\n`;
       welcomeMessage += `To get started, I need to know the default working directory for #${channelName}.\n\n`;
       
       if (config.baseDirectory) {
@@ -713,9 +713,17 @@ export class SlackHandler {
   }
 
   setupEventHandlers() {
-    // Handle direct messages
+    // Handle direct messages only — channel messages are handled by app_mention.
+    // Without this guard, @-mentions in channels trigger BOTH this listener and
+    // the app_mention listener, producing duplicate replies (one with the raw
+    // <@U...> prefix still in the text, which breaks command parsing).
     this.app.message(async ({ message, say }) => {
-      if (message.subtype === undefined && 'user' in message) {
+      if (
+        message.subtype === undefined &&
+        'user' in message &&
+        'channel_type' in message &&
+        message.channel_type === 'im'
+      ) {
         this.logger.info('Handling direct message event');
         await this.handleMessage(message as MessageEvent, say);
       }

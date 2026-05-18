@@ -12,7 +12,7 @@ async function start() {
     // Validate configuration
     validateConfig();
 
-    logger.info('Starting Claude Code Slack bot', {
+    logger.info('Starting Casey (AI Employee)', {
       debug: config.debug,
       useBedrock: config.claude.useBedrock,
       useVertex: config.claude.useVertex,
@@ -39,7 +39,7 @@ async function start() {
 
     // Start the app
     await app.start();
-    logger.info('⚡️ Claude Code Slack bot is running!');
+    logger.info('⚡️ Casey (AI Employee) is running!');
     logger.info('Configuration:', {
       usingBedrock: config.claude.useBedrock,
       usingVertex: config.claude.useVertex,

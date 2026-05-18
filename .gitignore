@@ -2,6 +2,9 @@
 node_modules/
 .claude/
 
+# Cloned target repos the bot operates on — never commit these
+workspaces/
+
 # Environment variables
 .env
 .env.local

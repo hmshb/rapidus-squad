@@ -9,7 +9,7 @@ features:
     messages_tab_enabled: true
     messages_tab_read_only_enabled: false
   bot_user:
-    display_name: ai-employee
+    display_name: Casey
     always_online: true
 oauth_config:
   scopes:

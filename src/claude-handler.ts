@@ -1,15 +1,21 @@
 import { spawn } from 'child_process';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ConversationSession, SDKMessage } from './types';
 import { Logger } from './logger';
 import { McpManager } from './mcp-manager';
 
-// Env vars that confuse the CLI when it's spawned from inside another Claude
-// Code session. Strip them so the child gets a clean slate.
+// Recursion-detection flags set by a parent Claude Code session, plus
+// ANTHROPIC_API_KEY which (if set, often stale) preempts the OAuth credentials
+// file used by `claude` subscriptions. Stripping these lets the child run as
+// a fresh top-level CLI invocation authenticating via ~/.claude credentials.
 const ENV_VARS_TO_STRIP = [
   'CLAUDECODE',
-  'CLAUDE_CODE_OAUTH_TOKEN',
   'CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST',
   'CLAUDE_CODE_ENTRYPOINT',
+  'CLAUDE_CODE_SESSION_ID',
+  'CLAUDE_CODE_EXECPATH',
+  'ANTHROPIC_API_KEY',
 ];
 
 function scrubbedEnv(): NodeJS.ProcessEnv {
@@ -28,7 +34,23 @@ export class ClaudeHandler {
 
   constructor(mcpManager: McpManager) {
     this.mcpManager = mcpManager;
-    this.claudeBin = process.env.CLAUDE_BIN || (process.platform === 'win32' ? 'claude.cmd' : 'claude');
+    this.claudeBin = process.env.CLAUDE_BIN || this.resolveClaudeBin();
+    this.logger.info('Resolved claude binary', { path: this.claudeBin });
+  }
+
+  // Find claude on PATH and resolve to an absolute path so spawn doesn't depend
+  // on shell PATHEXT quirks. Falls back to the bare name if not found.
+  private resolveClaudeBin(): string {
+    const isWin = process.platform === 'win32';
+    const candidates = isWin ? ['claude.exe', 'claude.cmd', 'claude'] : ['claude'];
+    const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+    for (const dir of dirs) {
+      for (const name of candidates) {
+        const full = path.join(dir, name);
+        try { if (fs.statSync(full).isFile()) return full; } catch { /* not here */ }
+      }
+    }
+    return isWin ? 'claude.exe' : 'claude';
   }
 
   getSessionKey(userId: string, channelId: string, threadTs?: string): string {
@@ -80,11 +102,16 @@ export class ClaudeHandler {
 
     this.logger.debug('Spawning claude', { bin: this.claudeBin, cwd, hasSession: !!session?.sessionId });
 
+    // Only shell out for .cmd / .bat shims; .exe files spawn directly. Using
+    // shell:true with cmd.exe on Windows can corrupt argv quoting and produce
+    // STATUS_DLL_INIT_FAILED for some binaries.
+    const useShell = /\.(cmd|bat)$/i.test(this.claudeBin);
     const proc = spawn(this.claudeBin, args, {
       cwd,
       env: scrubbedEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32', // .cmd shims need a shell on Windows
+      shell: useShell,
+      windowsHide: true,
     });
 
     if (abortController) {
