@@ -1,12 +1,48 @@
 import { WorkingDirectoryConfig } from './types';
 import { Logger } from './logger';
 import { config } from './config';
+import { pool } from './db';
 import * as path from 'path';
 import * as fs from 'fs';
 
 export class WorkingDirectoryManager {
   private configs: Map<string, WorkingDirectoryConfig> = new Map();
   private logger = new Logger('WorkingDirectoryManager');
+
+  async hydrate(): Promise<void> {
+    const { rows } = await pool.query(
+      `SELECT config_key, channel_id, thread_ts, user_id, directory, set_at FROM working_directories`
+    );
+    for (const r of rows) {
+      this.configs.set(r.config_key, {
+        channelId: r.channel_id,
+        threadTs: r.thread_ts ?? undefined,
+        userId: r.user_id ?? undefined,
+        directory: r.directory,
+        setAt: r.set_at,
+      });
+    }
+    this.logger.info('Hydrated working directories from DB', { count: rows.length });
+  }
+
+  private persist(key: string, cfg: WorkingDirectoryConfig): void {
+    pool.query(
+      `INSERT INTO working_directories (config_key, channel_id, thread_ts, user_id, directory, set_at)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (config_key) DO UPDATE
+       SET channel_id = EXCLUDED.channel_id,
+           thread_ts  = EXCLUDED.thread_ts,
+           user_id    = EXCLUDED.user_id,
+           directory  = EXCLUDED.directory,
+           set_at     = EXCLUDED.set_at`,
+      [key, cfg.channelId, cfg.threadTs ?? null, cfg.userId ?? null, cfg.directory, cfg.setAt]
+    ).catch((err) => this.logger.error('persist working_directories failed', err));
+  }
+
+  private deleteRow(key: string): void {
+    pool.query(`DELETE FROM working_directories WHERE config_key = $1`, [key])
+      .catch((err) => this.logger.error('delete working_directories failed', err));
+  }
 
   getConfigKey(channelId: string, threadTs?: string, userId?: string): string {
     if (threadTs) {
@@ -46,6 +82,7 @@ export class WorkingDirectoryManager {
       };
 
       this.configs.set(key, workingDirConfig);
+      this.persist(key, workingDirConfig);
       this.logger.info('Working directory set', {
         key,
         directory: resolvedPath,
@@ -121,6 +158,21 @@ export class WorkingDirectoryManager {
       return channelConfig.directory;
     }
 
+    // Fall back to the configured default (DEFAULT_WORKING_DIRECTORY)
+    if (config.defaultWorkingDirectory) {
+      const resolved = this.resolveDirectory(config.defaultWorkingDirectory);
+      if (resolved) {
+        this.logger.debug('Using DEFAULT_WORKING_DIRECTORY fallback', {
+          input: config.defaultWorkingDirectory,
+          resolved,
+        });
+        return resolved;
+      }
+      this.logger.warn('DEFAULT_WORKING_DIRECTORY is set but does not resolve', {
+        value: config.defaultWorkingDirectory,
+      });
+    }
+
     this.logger.debug('No working directory configured', { channelId, threadTs });
     return undefined;
   }
@@ -129,6 +181,7 @@ export class WorkingDirectoryManager {
     const key = this.getConfigKey(channelId, threadTs, userId);
     const result = this.configs.delete(key);
     if (result) {
+      this.deleteRow(key);
       this.logger.info('Working directory removed', { key });
     }
     return result;

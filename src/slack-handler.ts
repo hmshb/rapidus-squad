@@ -1,6 +1,6 @@
 import { App } from '@slack/bolt';
 import { ClaudeHandler } from './claude-handler';
-import { SDKMessage } from './types';
+import { ClaudeStreamMessage } from './types';
 import { Logger } from './logger';
 import { WorkingDirectoryManager } from './working-directory-manager';
 import { FileHandler, ProcessedFile } from './file-handler';
@@ -48,6 +48,13 @@ export class SlackHandler {
     this.workingDirManager = new WorkingDirectoryManager();
     this.fileHandler = new FileHandler();
     this.todoManager = new TodoManager();
+  }
+
+  async hydrate(): Promise<void> {
+    await Promise.all([
+      this.workingDirManager.hydrate(),
+      this.claudeHandler.init(),
+    ]);
   }
 
   async handleMessage(event: MessageEvent, say: any) {
@@ -215,6 +222,46 @@ export class SlackHandler {
     let currentMessages: string[] = [];
     let statusMessageTs: string | undefined;
 
+    // Streaming-deltas state: one Slack message that we grow with chat.update
+    // as text deltas arrive from `--include-partial-messages`. When tool use
+    // starts or the turn ends, the message is finalized and a fresh one
+    // begins on the next text block.
+    let streamMsgTs: string | undefined;
+    let streamText = '';
+    let streamLastFlush = 0;
+    let streamPending: NodeJS.Timeout | null = null;
+    const streamedTexts = new Set<string>();   // dedupe against full assistant msgs
+
+    const flushStream = async (final: boolean) => {
+      if (streamPending) { clearTimeout(streamPending); streamPending = null; }
+      if (!streamMsgTs || !streamText) return;
+      try {
+        await this.app.client.chat.update({
+          channel,
+          ts: streamMsgTs,
+          text: this.formatMessage(streamText, final),
+        });
+        streamLastFlush = Date.now();
+      } catch (err) {
+        this.logger.debug('chat.update (stream) failed', { err: String(err) });
+      }
+      if (final) {
+        streamedTexts.add(streamText);
+        streamMsgTs = undefined;
+        streamText = '';
+      }
+    };
+
+    const scheduleStreamFlush = () => {
+      if (streamPending || !streamMsgTs) return;
+      const elapsed = Date.now() - streamLastFlush;
+      const delay = Math.max(0, 700 - elapsed);  // throttle to ~1.4 updates/sec
+      streamPending = setTimeout(() => {
+        streamPending = null;
+        flushStream(false).catch(() => {});
+      }, delay);
+    };
+
     try {
       // Prepare the prompt with file attachments
       const finalPrompt = processedFiles.length > 0 
@@ -258,9 +305,48 @@ export class SlackHandler {
           message: message,
         });
 
+        if (message.type === 'stream_event') {
+          const ev: any = (message as any).event;
+          const evType = ev?.type;
+
+          if (evType === 'content_block_delta' && ev?.delta?.type === 'text_delta') {
+            // First delta of a new text block: stop the Thinking animation and
+            // post a placeholder Slack message we will grow.
+            const delta: string = ev.delta.text || '';
+            if (!delta) continue;
+
+            if (!streamMsgTs) {
+              this.stopAnimation(sessionKey);
+              const posted = await say({
+                text: this.formatMessage(delta, false),
+                thread_ts: thread_ts || ts,
+              });
+              streamMsgTs = posted.ts;
+              streamText = delta;
+              streamLastFlush = Date.now();
+            } else {
+              streamText += delta;
+              scheduleStreamFlush();
+            }
+            continue;
+          }
+
+          if (evType === 'content_block_stop' && streamMsgTs) {
+            // End of one text/tool block — flush and finalize the streaming message.
+            await flushStream(true);
+          }
+          continue;
+        }
+
         if (message.type === 'assistant') {
           // Stop the "Thinking..." animation — real work has started.
           this.stopAnimation(sessionKey);
+
+          // If text was already streamed via partial deltas, finalize that
+          // Slack message before any tool-use messages get posted.
+          if (streamMsgTs) {
+            await flushStream(true);
+          }
 
           // Check if this is a tool use message
           const hasToolUse = message.message.content?.some((part: any) => part.type === 'tool_use');
@@ -300,7 +386,12 @@ export class SlackHandler {
             const content = this.extractTextContent(message);
             if (content) {
               currentMessages.push(content);
-              
+
+              // If this text was already shown via streaming deltas, skip the
+              // duplicate post. Otherwise (streaming disabled / unsupported)
+              // fall through and post like before.
+              if (streamedTexts.has(content)) continue;
+
               // Send each new piece of content as a separate message
               const formatted = this.formatMessage(content, false);
               await say({
@@ -316,10 +407,19 @@ export class SlackHandler {
             totalCost: (message as any).total_cost_usd,
             duration: (message as any).duration_ms,
           });
-          
+
+          // Ensure any in-flight streaming message is finalized before result.
+          if (streamMsgTs) {
+            await flushStream(true);
+          }
+
           if (message.subtype === 'success' && (message as any).result) {
             const finalResult = (message as any).result;
-            if (finalResult && !currentMessages.includes(finalResult)) {
+            if (
+              finalResult &&
+              !currentMessages.includes(finalResult) &&
+              !streamedTexts.has(finalResult)
+            ) {
               const formatted = this.formatMessage(finalResult, true);
               await say({
                 text: formatted,
@@ -328,6 +428,11 @@ export class SlackHandler {
             }
           }
         }
+      }
+
+      // Final safety net — if the turn ended without a content_block_stop.
+      if (streamMsgTs) {
+        await flushStream(true);
       }
 
       this.stopAnimation(sessionKey);
@@ -410,7 +515,7 @@ export class SlackHandler {
     }
   }
 
-  private extractTextContent(message: SDKMessage): string | null {
+  private extractTextContent(message: ClaudeStreamMessage): string | null {
     if (message.type === 'assistant' && message.message.content) {
       const textParts = message.message.content
         .filter((part: any) => part.type === 'text')

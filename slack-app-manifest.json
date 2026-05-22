@@ -1,9 +1,9 @@
 {
   "display_information": {
-    "name": "AI Employee",
+    "name": "Rapidus Squad",
     "description": "An autonomous engineer that owns one module of test-claude-automation",
     "background_color": "#0b1220",
-    "long_description": "AI Employee runs daily health checks on the persona module, posts weekly state-of-the-module memos to #ai-employee, opens draft PRs when it spots regressions, and runs /qa or /dev-team-hybrid on demand when @-mentioned. Bounded by a forbidden-zone allow-list and zero direct push to main."
+    "long_description": "Rapidus Squad runs daily health checks on the persona module, posts weekly state-of-the-module memos to #rapidus-squad, opens draft PRs when it spots regressions, and runs /qa or /dev-team-hybrid on demand when @-mentioned. Bounded by a forbidden-zone allow-list and zero direct push to main."
   },
   "features": {
     "app_home": {

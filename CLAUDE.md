@@ -1,230 +1,101 @@
-# Claude Code Slack Bot
+# CLAUDE.md
 
-This is a TypeScript-based Slack bot that integrates with the Claude Code SDK to provide AI-powered coding assistance directly within Slack workspaces.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## What this is
 
-The bot allows users to interact with Claude Code through Slack, providing real-time coding assistance, file analysis, code reviews, and project management capabilities. It supports both direct messages and channel conversations, with sophisticated working directory management and task tracking.
+A Slack bot ("Casey", on the "Rapidus Squad") that routes Slack messages into long-lived `claude` CLI subprocesses. Each Slack thread is bound to one persistent process so conversation context stays warm across turns. Casey's identity and guardrails are injected via `--append-system-prompt` from `src/casey-prompt.ts`.
+
+This is **not** a wrapper around `@anthropic-ai/claude-code` (the SDK). The SDK was deliberately ripped out — we spawn `claude.exe` / `claude` directly with `--input-format stream-json --output-format stream-json` and shuttle JSON lines over stdio. See commit `b5c7044` for context.
+
+## Commands
+
+```bash
+npm run dev      # tsx watch — hot reload, dev loop
+npm run start    # tsx — run once without watch
+npm run build    # tsc → dist/
+npm run prod     # node dist/index.js
+```
+
+There is no test suite, no linter, and no formatter configured. Don't fabricate one.
+
+Postgres is **required** at startup — `src/db.ts` throws if `DATABASE_URL` is unset. `migrate()` runs on every boot and is idempotent (`CREATE TABLE IF NOT EXISTS`).
 
 ## Architecture
 
-### Core Components
+### Process model
 
-- **`src/index.ts`** - Application entry point and initialization
-- **`src/config.ts`** - Environment configuration and validation
-- **`src/slack-handler.ts`** - Main Slack event handling and message processing
-- **`src/claude-handler.ts`** - Claude Code SDK integration and session management
-- **`src/working-directory-manager.ts`** - Working directory configuration and resolution
-- **`src/file-handler.ts`** - File upload processing and content embedding
-- **`src/todo-manager.ts`** - Task list management and progress tracking
-- **`src/mcp-manager.ts`** - MCP server configuration and management
-- **`src/logger.ts`** - Structured logging utility
-- **`src/types.ts`** - TypeScript type definitions
-
-### Key Features
-
-#### 1. Working Directory Management
-- **Base Directory Support**: Configure a base directory (e.g., `/Users/username/Code/`) to use short project names
-- **Channel Defaults**: Each channel gets a default working directory when the bot is first added
-- **Thread Overrides**: Individual threads can override the channel default by mentioning the bot
-- **Hierarchy**: Thread-specific > Channel default > DM-specific
-- **Smart Resolution**: Supports both relative paths (`cwd project-name`) and absolute paths
-
-#### 2. Real-Time Task Tracking
-- **Todo Lists**: Displays Claude's planning process as formatted task lists in Slack
-- **Progress Updates**: Updates task status in real-time as Claude works
-- **Priority Indicators**: Visual priority levels (🔴 High, 🟡 Medium, 🟢 Low)
-- **Status Reactions**: Emoji reactions on original messages show overall progress
-- **Live Updates**: Single message updates instead of spam
-
-#### 3. File Upload Support
-- **Multiple Formats**: Images (JPG, PNG, GIF, WebP), text files, code files, documents
-- **Content Embedding**: Text files are embedded directly in prompts
-- **Image Analysis**: Images are saved for Claude to analyze using the Read tool
-- **Size Limits**: 50MB file size limit with automatic cleanup
-- **Security**: Secure download using Slack bot token authentication
-
-#### 4. Advanced Message Handling
-- **Streaming Responses**: Real-time message updates as Claude generates responses
-- **Tool Formatting**: Rich formatting for file edits, bash commands, and other tool usage
-- **Status Indicators**: Clear visual feedback (🤔 Thinking, ⚙️ Working, ✅ Completed)
-- **Error Handling**: Graceful error recovery with informative messages
-- **Session Management**: Conversation context maintained across interactions
-
-#### 5. Channel Integration
-- **Auto-Setup**: Automatic welcome message when added to channels
-- **Mentions**: Responds to @mentions in channels
-- **Thread Support**: Maintains context within threaded conversations
-- **File Uploads**: Handles file uploads in any conversation context
-
-#### 6. MCP (Model Context Protocol) Integration
-- **External Tools**: Extends Claude's capabilities with external MCP servers
-- **Multiple Server Types**: Supports stdio, SSE, and HTTP MCP servers
-- **Auto-Configuration**: Loads servers from `mcp-servers.json` automatically
-- **Tool Management**: All MCP tools are allowed by default with `mcp__serverName__toolName` pattern
-- **Runtime Management**: Reload configuration without restarting the bot
-- **Popular Integrations**: Filesystem access, GitHub API, database connections, web search
-
-## Environment Configuration
-
-### Required Variables
-```env
-# Slack App Configuration
-SLACK_BOT_TOKEN=xoxb-your-bot-token
-SLACK_APP_TOKEN=xapp-your-app-token  
-SLACK_SIGNING_SECRET=your-signing-secret
-
-# Claude Code Configuration
-ANTHROPIC_API_KEY=your-anthropic-api-key
+```
+Slack event ──► SlackHandler ──► ClaudeHandler ──► ClaudeProcess (long-lived child)
+                                       │                  ▲
+                                       └──► WarmPool ─────┘  (pre-spawned, bound on demand)
 ```
 
-### Optional Variables
-```env
-# Working Directory Configuration
-BASE_DIRECTORY=/Users/username/Code/
+- **`ClaudeProcess`** (`src/claude-process.ts`) wraps one `claude` subprocess. It stays alive across turns. `streamTurn(content)` writes one user message to stdin and yields stream-JSON messages until a `result` event terminates the turn. One turn at a time per process (`busy` flag).
+- **`WarmPool`** (`src/process-pool.ts`) keeps N (default 2, `CASEY_WARM_POOL_SIZE`) idle processes pre-spawned against `config.defaultWorkingDirectory`, to skip the ~5–8s Windows cold start. Acquire is cwd-matched: a warm process is only handed out if its cwd matches the requested cwd. After acquisition, the pool refills in the background.
+- **`ClaudeHandler.acquireProcess`** picks in priority order: existing bound process for the session → warm pool (only if no `resumeSessionId`) → cold spawn. An idle bound process is reaped after 30 min (`BOUND_IDLE_MAX_MS`).
+- Env vars **stripped before spawn** (`ENV_VARS_TO_STRIP`): `CLAUDECODE`, `CLAUDE_CODE_*`, `ANTHROPIC_API_KEY`. The first set prevents Claude Code from recursing into itself when this process is itself launched under Claude Code; the API key is stripped so the child falls back to `~/.claude` OAuth credentials (subscription auth) instead of a possibly-stale env key.
 
-# Third-party API Providers
-CLAUDE_CODE_USE_BEDROCK=1
-CLAUDE_CODE_USE_VERTEX=1
+### Session identity
 
-# Development
-DEBUG=true
-```
+A "session" is keyed by `${userId}-${channelId}-${threadTs || 'direct'}`. Two layers:
 
-## Slack App Configuration
+1. **Our session row** (`sessions` table) — maps the session key to a `claude` `session_id` returned in the `system/init` stream event. Used to resume after a process crash or restart.
+2. **The bound process** (`bound: Map<sessionKey, ClaudeProcess>`) — in-memory only. A bound process is the live channel for that thread; if it dies, the next message cold-spawns and `--resume`s using the persisted `session_id`.
 
-### Required Permissions
-- `app_mentions:read` - Read mentions
-- `channels:history` - Read channel messages
-- `chat:write` - Send messages
-- `chat:write.public` - Write to public channels
-- `im:history` - Read direct messages
-- `im:read` - Basic DM info
-- `im:write` - Send direct messages
-- `users:read` - Read user information
-- `reactions:read` - Read message reactions
-- `reactions:write` - Add/remove reactions
+When `SlackHandler.handleMessage` runs in a new thread, `threadTs` is falsy on the root message, so it uses `ts` instead. Re-read `slack-handler.ts:198` if you change session keying — it's load-bearing.
 
-### Required Events
-- `app_mention` - When the bot is mentioned
-- `message.im` - Direct messages
-- `member_joined_channel` - When bot is added to channels
+### Persistence
 
-### Socket Mode
-The bot uses Socket Mode for real-time event handling, requiring an app-level token with `connections:write` scope.
+Two tables, created in `src/db.ts`:
 
-## Usage Patterns
+- **`sessions`** — session_key, user/channel/thread, last known claude `session_id`, last_activity.
+- **`working_directories`** — `config_key` is `channelId` (channel default), `channelId-threadTs` (thread override), or `channelId-userId` for DMs. Lookup priority in `WorkingDirectoryManager.getWorkingDirectory`: thread > channel/DM > `DEFAULT_WORKING_DIRECTORY` env fallback.
 
-### Channel Setup
-```
-1. Add bot to channel
-2. Bot sends welcome message asking for working directory
-3. Set default: `cwd project-name` or `cwd /absolute/path`
-4. Start using: `@ClaudeBot help me with authentication`
-```
+On startup, `SlackHandler.hydrate()` re-loads both into memory in parallel. After that, writes are fire-and-forget (`pool.query(...).catch(log)`) — we don't await DB writes on the hot path.
 
-### Thread Overrides
-```
-@ClaudeBot cwd different-project
-@ClaudeBot now help me with this other codebase
-```
+### Slack streaming UX
 
-### File Analysis
-```
-[Upload image/code file]
-Analyze this screenshot and suggest improvements
-```
+`SlackHandler.handleMessage` does three concurrent things that all target the same Slack thread:
 
-### Task Tracking
-Users see real-time task lists as Claude plans and executes work:
-```
-📋 Task List
+1. **A status message** (`🤔 Thinking` → `⚙️ Working` → `✅ Task completed`), edited via `chat.update`. `animateThinking` animates the dots until the first stream event arrives.
+2. **A growing text message** built from `content_block_delta` events (only when `--include-partial-messages` is on, default unless `CASEY_DISABLE_STREAMING=true`). Throttled to ~1.4 updates/sec (`scheduleStreamFlush`). Finalized on `content_block_stop`, then a fresh message starts on the next text block. `streamedTexts` set deduplicates against the full `assistant` message that arrives later.
+3. **Tool-use messages** posted as separate messages with custom formatters per tool (`formatEditTool`, `formatBashTool`, etc.). `TodoWrite` is special-cased — its output is suppressed and routed through `TodoManager` into a single edited "task list" message.
 
-🔄 In Progress:
-🔴 Analyze authentication system
+A reaction emoji on the user's original message tracks overall state: `thinking_face` → `gear` → progress emoji (from todos) → `white_check_mark` / `x` / `black_square_for_stop`. `updateMessageReaction` removes the previous one before adding the new one.
 
-⏳ Pending:  
-🟡 Implement OAuth flow
-🟢 Add error handling
+`activeControllers` lets a new message in the same thread abort an in-flight turn (`AbortController.abort()` → `proc.kill()` → bound process is dropped).
 
-Progress: 1/3 tasks completed (33%)
-```
+### Casey system prompt
 
-### MCP Server Management
-```
-# View configured MCP servers
-User: mcp
-Bot: 🔧 MCP Servers Configured:
-     • filesystem (stdio)
-     • github (stdio)  
-     • postgres (stdio)
+`src/casey-prompt.ts` exports `CASEY_SYSTEM_PROMPT` and is appended to claude's built-in system prompt on every spawn. **Every token in there is paid every turn** — keep it tight. It defines Casey's identity, scope (currently the "persona module"), and hard guardrails (no touching `backend/app/auth/`, migrations, Stripe, workflows, `.env*`, `main`).
 
-# Reload MCP configuration
-User: mcp reload
-Bot: ✅ MCP configuration reloaded successfully.
+### Permission MCP
 
-# Use MCP tools automatically
-User: @ClaudeBot list all TODO comments in the project
-Bot: [Uses mcp__filesystem tools to search files]
-```
+`src/permission-mcp-server.ts` (referenced by `slack-handler.ts:9`) backs `approve_tool` / `deny_tool` Slack action buttons. If you're wiring up tool permission prompts, the resolve path is `permissionServer.resolveApproval(approvalId, allow)`.
 
-## Development
+## Environment
 
-### Build and Run
-```bash
-npm install
-npm run build
-npm run dev     # Development with hot reload
-npm run prod    # Production mode
-```
+Required: `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_SIGNING_SECRET`, `DATABASE_URL`.
 
-### Project Structure
-```
-src/
-├── index.ts                      # Entry point
-├── config.ts                     # Configuration
-├── slack-handler.ts              # Slack event handling
-├── claude-handler.ts             # Claude Code SDK integration
-├── working-directory-manager.ts  # Directory management
-├── file-handler.ts               # File processing
-├── todo-manager.ts               # Task tracking
-├── mcp-manager.ts                # MCP server management
-├── logger.ts                     # Logging utility
-└── types.ts                      # Type definitions
+Casey-specific knobs:
 
-# Configuration files
-mcp-servers.json                  # MCP server configuration
-mcp-servers.example.json          # Example MCP configuration
-```
+- `CASEY_MODEL` — default `claude-sonnet-4-5`. Passed to `--model`.
+- `CASEY_WARM_POOL_SIZE` — default 2. Set 0 to disable warm pool.
+- `CASEY_DISALLOWED_TOOLS` — default `NotebookEdit,NotebookRead,WebSearch`. Comma-separated, passed to `--disallowedTools`.
+- `CASEY_DISABLE_STREAMING=true` — drops `--include-partial-messages`, falls back to whole-message posting.
+- `CLAUDE_BIN` — override path to the `claude` binary. Otherwise resolved by walking `PATH` (`claude.exe` / `claude.cmd` / `claude` on Windows).
+- `BASE_DIRECTORY` — lets users say `cwd project-name` instead of an absolute path.
+- `DEFAULT_WORKING_DIRECTORY` — used by the warm pool, and as a final fallback when no channel/thread has a cwd set.
 
-### Key Design Decisions
+## Platform notes
 
-1. **Append-Only Messages**: Instead of editing a single message, each response is a separate message for better conversation flow
-2. **Session-Based Context**: Each conversation maintains its own Claude Code session for continuity
-3. **Smart File Handling**: Text content embedded in prompts, images passed as file paths for Claude to read
-4. **Hierarchical Working Directories**: Channel defaults with thread overrides for flexibility
-5. **Real-Time Feedback**: Status reactions and live task updates for transparency
+- **Windows**: the dev environment is Windows 11 + PowerShell. `claudeBin` resolution prefers `claude.exe` then `claude.cmd`. When the resolved binary is `.cmd` or `.bat`, `ClaudeProcess` sets `shell: true` so cmd-script wrappers (like npm-installed shims) work — this is the only path that uses a shell, and matters for argv quoting.
+- The repo path is `D:\Workspace\ai-employee`. Paths in Slack `cwd` commands are normalized through `path.resolve`.
 
-### Error Handling
-- Graceful degradation when Slack API calls fail
-- Automatic retry for transient errors
-- Comprehensive logging for debugging
-- User-friendly error messages
-- Automatic cleanup of temporary files
+## Things not to do
 
-### Security Considerations
-- Environment variables for sensitive configuration
-- Secure file download with proper authentication
-- Temporary file cleanup after processing
-- No storage of user data beyond session duration
-- Validation of file types and sizes
-
-## Future Enhancements
-
-Potential areas for expansion:
-- Persistent working directory storage (database)
-- Advanced file format support (PDFs, Office docs)
-- Integration with version control systems
-- Custom slash commands
-- Team-specific bot configurations
-- Analytics and usage tracking
+- Don't reintroduce the `@anthropic-ai/claude-code` SDK — `claude` CLI is the integration surface now.
+- Don't `await` DB writes on the message hot path. `persistSession` / `persist` are intentionally fire-and-forget.
+- Don't change session keying without grepping for `getSessionKey` — `bound`, `activeControllers`, `todoMessages`, `originalMessages`, `currentReactions`, `activeAnimations` all key off the same string.
+- Don't add `--permission-mode` casually; Casey runs without one and the permission MCP server is how approvals flow back through Slack.

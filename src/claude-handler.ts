@@ -1,9 +1,13 @@
-import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ConversationSession, SDKMessage } from './types';
+import { ConversationSession, ClaudeStreamMessage } from './types';
 import { Logger } from './logger';
 import { McpManager } from './mcp-manager';
+import { pool } from './db';
+import { CASEY_SYSTEM_PROMPT } from './casey-prompt';
+import { config } from './config';
+import { ClaudeProcess } from './claude-process';
+import { WarmPool } from './process-pool';
 
 // Recursion-detection flags set by a parent Claude Code session, plus
 // ANTHROPIC_API_KEY which (if set, often stale) preempts the OAuth credentials
@@ -26,16 +30,82 @@ function scrubbedEnv(): NodeJS.ProcessEnv {
   return out;
 }
 
+const WARM_POOL_SIZE = parseInt(process.env.CASEY_WARM_POOL_SIZE || '2', 10);
+const BOUND_IDLE_MAX_MS = 30 * 60 * 1000; // kill bound processes idle 30 min
+
 export class ClaudeHandler {
   private sessions: Map<string, ConversationSession> = new Map();
+  private bound: Map<string, ClaudeProcess> = new Map();
+  private warmPool: WarmPool | null = null;
   private logger = new Logger('ClaudeHandler');
   private mcpManager: McpManager;
   private claudeBin: string;
+  private reaper?: NodeJS.Timeout;
 
   constructor(mcpManager: McpManager) {
     this.mcpManager = mcpManager;
     this.claudeBin = process.env.CLAUDE_BIN || this.resolveClaudeBin();
     this.logger.info('Resolved claude binary', { path: this.claudeBin });
+  }
+
+  // Initialize: hydrate persisted sessions, then start the warm pool. Idempotent.
+  async init(): Promise<void> {
+    await this.hydrate();
+    const defaultCwd = this.resolveDefaultCwd();
+    if (defaultCwd) {
+      this.warmPool = new WarmPool(WARM_POOL_SIZE, defaultCwd, (cwd) => this.spawnProcess(cwd));
+      this.warmPool.warmUp();
+    } else {
+      this.logger.warn('No default cwd available; warm pool disabled');
+    }
+    this.reaper = setInterval(() => this.reapIdleBound(), 60 * 1000);
+    this.reaper.unref?.();
+  }
+
+  private resolveDefaultCwd(): string | null {
+    const v = config.defaultWorkingDirectory;
+    if (!v) return null;
+    if (path.isAbsolute(v) && fs.existsSync(v)) return path.resolve(v);
+    if (config.baseDirectory) {
+      const joined = path.join(config.baseDirectory, v);
+      if (fs.existsSync(joined)) return path.resolve(joined);
+    }
+    const cwdRel = path.resolve(v);
+    if (fs.existsSync(cwdRel)) return cwdRel;
+    return null;
+  }
+
+  async hydrate(): Promise<void> {
+    const { rows } = await pool.query(
+      `SELECT session_key, user_id, channel_id, thread_ts, session_id, last_activity FROM sessions`
+    );
+    for (const r of rows) {
+      this.sessions.set(r.session_key, {
+        userId: r.user_id,
+        channelId: r.channel_id,
+        threadTs: r.thread_ts ?? undefined,
+        sessionId: r.session_id ?? undefined,
+        isActive: false,
+        lastActivity: r.last_activity,
+      });
+    }
+    this.logger.info('Hydrated sessions from DB', { count: rows.length });
+  }
+
+  private persistSession(key: string, s: ConversationSession): void {
+    pool.query(
+      `INSERT INTO sessions (session_key, user_id, channel_id, thread_ts, session_id, last_activity)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (session_key) DO UPDATE
+       SET session_id    = EXCLUDED.session_id,
+           last_activity = EXCLUDED.last_activity`,
+      [key, s.userId, s.channelId, s.threadTs ?? null, s.sessionId ?? null, s.lastActivity]
+    ).catch((err) => this.logger.error('persist sessions failed', err));
+  }
+
+  private deleteSessionRow(key: string): void {
+    pool.query(`DELETE FROM sessions WHERE session_key = $1`, [key])
+      .catch((err) => this.logger.error('delete sessions failed', err));
   }
 
   // Find claude on PATH and resolve to an absolute path so spawn doesn't depend
@@ -69,8 +139,59 @@ export class ClaudeHandler {
       isActive: true,
       lastActivity: new Date(),
     };
-    this.sessions.set(this.getSessionKey(userId, channelId, threadTs), session);
+    const key = this.getSessionKey(userId, channelId, threadTs);
+    this.sessions.set(key, session);
+    this.persistSession(key, session);
     return session;
+  }
+
+  private spawnProcess(cwd: string, resumeSessionId?: string): ClaudeProcess {
+    return new ClaudeProcess({
+      bin: this.claudeBin,
+      cwd,
+      model: process.env.CASEY_MODEL || 'claude-sonnet-4-5',
+      appendSystemPrompt: CASEY_SYSTEM_PROMPT,
+      resumeSessionId,
+      env: scrubbedEnv(),
+      disallowedTools: process.env.CASEY_DISALLOWED_TOOLS || 'NotebookEdit,NotebookRead,WebSearch',
+      includePartialMessages: process.env.CASEY_DISABLE_STREAMING === 'true' ? false : true,
+    });
+  }
+
+  // Get (or create) the long-lived claude process bound to this sessionKey.
+  // Priority: existing bound → warm pool (matching cwd, no resume) → cold spawn.
+  private acquireProcess(sessionKey: string, cwd: string, resumeSessionId?: string): ClaudeProcess {
+    let proc = this.bound.get(sessionKey);
+    if (proc && proc.isDead()) {
+      this.bound.delete(sessionKey);
+      proc = undefined;
+    }
+    if (proc) return proc;
+
+    if (!resumeSessionId && this.warmPool) {
+      const warm = this.warmPool.acquire(cwd);
+      if (warm) {
+        this.logger.info('Bound warm process to session', { sessionKey, cwd });
+        this.bound.set(sessionKey, warm);
+        this.attachExitHandler(sessionKey, warm);
+        return warm;
+      }
+    }
+
+    this.logger.info('Cold-spawning claude for session', { sessionKey, cwd, resume: !!resumeSessionId });
+    const fresh = this.spawnProcess(cwd, resumeSessionId);
+    this.bound.set(sessionKey, fresh);
+    this.attachExitHandler(sessionKey, fresh);
+    return fresh;
+  }
+
+  private attachExitHandler(sessionKey: string, proc: ClaudeProcess): void {
+    proc.once('exit', () => {
+      if (this.bound.get(sessionKey) === proc) {
+        this.bound.delete(sessionKey);
+        this.logger.info('Bound process exited; unbound from session', { sessionKey });
+      }
+    });
   }
 
   async *streamQuery(
@@ -78,143 +199,71 @@ export class ClaudeHandler {
     session?: ConversationSession,
     abortController?: AbortController,
     workingDirectory?: string,
-    slackContext?: { channel: string; threadTs?: string; user: string }
-  ): AsyncGenerator<SDKMessage, void, unknown> {
-    const args: string[] = [
-      '-p', prompt,
-      '--output-format', 'stream-json',
-      '--verbose',
-    ];
-
-    if (session?.sessionId) {
-      args.push('--resume', session.sessionId);
-      this.logger.debug('Resuming session', { sessionId: session.sessionId });
-    } else {
-      this.logger.debug('Starting new Claude conversation');
-    }
-
-    if (!slackContext) {
-      // Headless / no human in the loop — let it run unattended.
-      args.push('--permission-mode', 'bypassPermissions');
-    }
-
+    _slackContext?: { channel: string; threadTs?: string; user: string }
+  ): AsyncGenerator<ClaudeStreamMessage, void, unknown> {
     const cwd = workingDirectory || process.cwd();
 
-    this.logger.debug('Spawning claude', { bin: this.claudeBin, cwd, hasSession: !!session?.sessionId });
-
-    // Only shell out for .cmd / .bat shims; .exe files spawn directly. Using
-    // shell:true with cmd.exe on Windows can corrupt argv quoting and produce
-    // STATUS_DLL_INIT_FAILED for some binaries.
-    const useShell = /\.(cmd|bat)$/i.test(this.claudeBin);
-    const proc = spawn(this.claudeBin, args, {
-      cwd,
-      env: scrubbedEnv(),
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: useShell,
-      windowsHide: true,
-    });
-
-    if (abortController) {
-      abortController.signal.addEventListener('abort', () => {
-        if (!proc.killed) proc.kill();
-      });
+    // Without a session we can't bind to a thread; fall back to a one-shot
+    // cold spawn that's killed when the turn ends.
+    if (!session) {
+      const proc = this.spawnProcess(cwd);
+      const abortHook = () => proc.kill();
+      abortController?.signal.addEventListener('abort', abortHook);
+      try {
+        for await (const msg of proc.streamTurn(prompt)) {
+          yield msg;
+        }
+      } finally {
+        proc.kill();
+        abortController?.signal.removeEventListener('abort', abortHook);
+      }
+      return;
     }
 
-    const stderrChunks: string[] = [];
-    proc.stderr?.on('data', (chunk: Buffer) => {
-      const text = chunk.toString();
-      stderrChunks.push(text);
-      this.logger.debug('claude stderr', { text: text.trim() });
-    });
+    const sessionKey = this.getSessionKey(session.userId, session.channelId, session.threadTs);
+    const proc = this.acquireProcess(sessionKey, cwd, session.sessionId);
 
-    const exitPromise = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
-      proc.on('error', (err) => reject(err));
-      proc.on('exit', (code, signal) => resolve({ code, signal }));
-    });
-
-    // NDJSON line buffer
-    let buf = '';
-    const queue: string[] = [];
-    let resolveLine: ((line: string | null) => void) | null = null;
-    let streamEnded = false;
-
-    proc.stdout?.on('data', (chunk: Buffer) => {
-      buf += chunk.toString('utf8');
-      let idx: number;
-      while ((idx = buf.indexOf('\n')) !== -1) {
-        const line = buf.slice(0, idx).trim();
-        buf = buf.slice(idx + 1);
-        if (line.length === 0) continue;
-        if (resolveLine) {
-          const r = resolveLine;
-          resolveLine = null;
-          r(line);
-        } else {
-          queue.push(line);
-        }
-      }
-    });
-
-    proc.stdout?.on('end', () => {
-      streamEnded = true;
-      if (buf.trim().length > 0) {
-        queue.push(buf.trim());
-        buf = '';
-      }
-      if (resolveLine) {
-        const r = resolveLine;
-        resolveLine = null;
-        r(null);
-      }
-    });
+    const abortHook = () => {
+      proc.kill();
+      this.bound.delete(sessionKey);
+    };
+    abortController?.signal.addEventListener('abort', abortHook);
 
     try {
-      while (true) {
-        let line: string | null;
-        if (queue.length > 0) {
-          line = queue.shift()!;
-        } else if (streamEnded) {
-          break;
-        } else {
-          line = await new Promise<string | null>((resolve) => {
-            resolveLine = resolve;
-          });
-        }
-        if (line === null) break;
-
-        let parsed: SDKMessage;
-        try {
-          parsed = JSON.parse(line) as SDKMessage;
-        } catch (e) {
-          this.logger.debug('Non-JSON line from claude (dropped)', { line: line.slice(0, 200) });
-          continue;
-        }
-
-        if (parsed.type === 'system' && (parsed as any).subtype === 'init') {
-          const sid = (parsed as any).session_id;
-          if (session && sid) {
+      for await (const msg of proc.streamTurn(prompt)) {
+        if (msg.type === 'system' && (msg as any).subtype === 'init') {
+          const sid = (msg as any).session_id;
+          if (sid && session.sessionId !== sid) {
             session.sessionId = sid;
+            session.lastActivity = new Date();
+            this.persistSession(sessionKey, session);
             this.logger.info('Session initialized', {
               sessionId: sid,
-              model: (parsed as any).model,
-              tools: (parsed as any).tools?.length || 0,
+              model: (msg as any).model,
+              tools: (msg as any).tools?.length || 0,
             });
           }
         }
-
-        yield parsed;
+        yield msg;
       }
-
-      const { code, signal } = await exitPromise;
-      if (code !== 0 && code !== null) {
-        const stderr = stderrChunks.join('').slice(-2000);
-        this.logger.error('claude exited non-zero', { code, signal, stderr });
-        throw new Error(`claude exited with code ${code}: ${stderr || '(no stderr)'}`);
-      }
+      session.lastActivity = new Date();
+      this.persistSession(sessionKey, session);
     } finally {
-      if (!proc.killed) {
-        try { proc.kill(); } catch { /* ignore */ }
+      abortController?.signal.removeEventListener('abort', abortHook);
+    }
+  }
+
+  private reapIdleBound(): void {
+    let reaped = 0;
+    for (const [key, proc] of this.bound.entries()) {
+      if (!proc.busy && proc.idleMs() > BOUND_IDLE_MAX_MS) {
+        proc.kill();
+        this.bound.delete(key);
+        reaped++;
       }
+    }
+    if (reaped > 0) {
+      this.logger.info(`Reaped ${reaped} idle bound processes`);
     }
   }
 
@@ -224,11 +273,24 @@ export class ClaudeHandler {
     for (const [key, session] of this.sessions.entries()) {
       if (now - session.lastActivity.getTime() > maxAge) {
         this.sessions.delete(key);
+        this.deleteSessionRow(key);
+        const bound = this.bound.get(key);
+        if (bound) {
+          bound.kill();
+          this.bound.delete(key);
+        }
         cleaned++;
       }
     }
     if (cleaned > 0) {
       this.logger.info(`Cleaned up ${cleaned} inactive sessions`);
     }
+  }
+
+  shutdown(): void {
+    if (this.reaper) clearInterval(this.reaper);
+    for (const p of this.bound.values()) p.kill();
+    this.bound.clear();
+    this.warmPool?.shutdown();
   }
 }
