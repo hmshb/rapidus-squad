@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter 3 — Cross-tool chat</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #07090f; --bg-2: #0d1320; --panel: #111a2e;
+    --ink: #e7ecf5; --ink-2: #c3cee0; --mute: #7d8ba8;
+    --line: #1c2541; --line-2: #233055;
+    --accent: #79c0ff; --ok: #6ee7a8; --warn: #f5b461; --bad: #f47878;
+    --slack-bg: #1a1d29; --slack-side: #19171d;
+    --slack-side-active: #1164a3; --slack-text: #d1d2d3;
+    --slack-muted: #ababad;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); min-height: 100vh;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .top { max-width: 1200px; margin: 0 auto; padding: 28px 32px 0; display: flex; justify-content: space-between; font-size: 13px; color: var(--mute); }
+  .top a { color: var(--accent); text-decoration: none; }
+  .top .nav a { margin-left: 14px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 32px 96px; }
+  h1 { font-size: 32px; margin: 18px 0 6px; letter-spacing: -0.01em; }
+  .lede { color: var(--ink-2); max-width: 760px; margin: 0 0 8px; }
+  .who { color: var(--mute); font-size: 13px; margin-bottom: 30px; }
+  .who strong { color: var(--ink-2); }
+
+  /* Layout: Slack thread on left, "what Casey did" panel on right */
+  .split { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
+
+  /* Slack */
+  .slack {
+    background: var(--slack-bg); border: 1px solid #2b2a30; border-radius: 12px; overflow: hidden;
+    display: grid; grid-template-columns: 70px 1fr;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.4);
+  }
+  .ws-rail { background: #3f0e40; display: flex; flex-direction: column; align-items: center; padding: 16px 0; gap: 10px; }
+  .ws-rail .ws { width: 38px; height: 38px; border-radius: 8px; background: linear-gradient(135deg, #4a8fdc, #2b6cba); display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 14px; border: 2px solid white; }
+  .convo { background: #1d1c1d; display: flex; flex-direction: column; }
+  .convo .header { background: white; border-bottom: 1px solid #e8e8e8; padding: 12px 24px; display: flex; align-items: center; gap: 12px; }
+  .convo .header .title { font-weight: 800; color: #1d1c1d; font-size: 15px; }
+  .convo .header .meta { color: #616061; font-size: 13px; }
+  .convo .header .casey-av { width: 24px; height: 24px; border-radius: 5px; background: linear-gradient(135deg,#4a8fdc,#2b6cba); display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 12px; }
+  .convo .messages { flex: 1; background: white; padding: 22px 24px; }
+  .msg { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 8px 0; }
+  .av { width: 36px; height: 36px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 14px; }
+  .av.alice { background: #2bb673; }
+  .av.casey { background: linear-gradient(135deg,#4a8fdc,#2b6cba); }
+  .head { display: flex; align-items: baseline; gap: 8px; }
+  .head .name { font-weight: 800; color: #1d1c1d; font-size: 15px; }
+  .head .app { background: #ddd; color: #444; font-size: 10px; padding: 1px 4px; border-radius: 2px; text-transform: uppercase; font-weight: 700; }
+  .head .time { color: #616061; font-size: 12px; }
+  .body { color: #1d1c1d; font-size: 14.5px; line-height: 1.55; }
+  .body code { background: #f4ede4; padding: 1px 4px; border-radius: 3px; color: #7c2d12; font-family: ui-monospace, monospace; font-size: 13px; }
+
+  /* Casey tool trace inside Slack */
+  .trace {
+    margin: 8px 0; padding: 8px 12px;
+    background: #f9f9fa; border-left: 3px solid #c5cee0;
+    font-family: ui-monospace, monospace; font-size: 12.5px;
+    color: #555; line-height: 1.7;
+  }
+  .trace .ok { color: #007a5a; }
+  .trace .tool { color: #1264a3; font-weight: 600; }
+
+  /* Casey's structured answer */
+  .answer { margin-top: 6px; }
+  .answer h4 { margin: 14px 0 6px; font-size: 14.5px; color: #1d1c1d; }
+  .answer h4:first-child { margin-top: 0; }
+  .answer ul { margin: 0; padding-left: 18px; color: #1d1c1d; font-size: 14px; line-height: 1.7; }
+  .answer .src { color: #616061; font-size: 12px; font-style: italic; }
+  .answer .pill {
+    display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px;
+    font-weight: 700; letter-spacing: 0.04em; margin-right: 6px;
+  }
+  .answer .pill.lin { background: #f5e9ff; color: #6b27a8; }
+  .answer .pill.gh { background: #e9ecef; color: #24292f; }
+  .answer .pill.no { background: #fff1d8; color: #8a5a00; }
+
+  .convo .composer { background: white; padding: 12px 24px 20px; }
+  .convo .composer .box { border: 1px solid #e8e8e8; border-radius: 6px; padding: 10px 14px; color: #616061; font-size: 14px; }
+
+  /* Right panel: what happened */
+  .panel {
+    background: linear-gradient(180deg, var(--panel) 0%, #0e1730 100%);
+    border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px;
+  }
+  .panel h3 { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); margin: 0 0 18px; font-weight: 700; }
+  .panel h3:not(:first-child) { margin-top: 26px; }
+  .stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13.5px; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .k { color: var(--mute); }
+  .stat-row .v { color: var(--ink); font-family: ui-monospace, monospace; font-size: 13px; }
+  .stat-row .v.ok { color: var(--ok); }
+
+  .tool-list { display: grid; gap: 10px; margin-top: 6px; }
+  .tool-pill {
+    background: #0a1226; border: 1px solid var(--line-2); border-radius: 8px;
+    padding: 10px 12px; font-size: 13px;
+  }
+  .tool-pill .head-row { display: flex; justify-content: space-between; align-items: center; }
+  .tool-pill .name { font-family: ui-monospace, monospace; color: var(--accent); font-size: 12.5px; font-weight: 600; }
+  .tool-pill .ms { color: var(--mute); font-size: 12px; font-family: ui-monospace, monospace; }
+  .tool-pill .args { color: var(--ink-2); margin-top: 4px; font-family: ui-monospace, monospace; font-size: 12px; }
+  .tool-pill .args .k { color: var(--mute); }
+
+  .note {
+    background: rgba(110,231,168,0.06); border: 1px solid rgba(110,231,168,0.25);
+    border-radius: 8px; padding: 10px 14px; color: var(--ink-2); font-size: 13px; margin-top: 16px;
+  }
+  .note strong { color: var(--ok); }
+
+  .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13px; }
+  .pager a { color: var(--accent); text-decoration: none; }
+  .pager .home { color: var(--mute); }
+</style>
+</head>
+<body>
+<div class="top">
+  <a href="02-onboarding.html">← Chapter 2</a>
+  <div class="nav">
+    <span style="color:var(--mute)">Chapter 3 of 7</span>
+    <a href="04-sandbox-fix.html">Next: sandbox fix →</a>
+  </div>
+</div>
+<main>
+  <h1>Alice asks across GitHub + Linear + Notion</h1>
+  <p class="lede">
+    Read-only flow. Alice asks one question that spans three tools. Casey
+    orchestrates the connectors in parallel, synthesizes the result, and
+    cites which source each fact came from. No approvals needed because
+    nothing changes state in the outside world.
+  </p>
+  <p class="who"><strong>Goal:</strong> show what cross-tool orchestration looks like when the underlying primitives are MCP servers, not bash.</p>
+
+  <div class="split">
+    <div class="slack">
+      <div class="ws-rail"><div class="ws">A</div></div>
+      <div class="convo">
+        <div class="header">
+          <span class="casey-av">C</span>
+          <span class="title">Casey <span style="background:#ddd;color:#444;font-size:10px;padding:1px 5px;border-radius:2px;font-weight:700">APP</span></span>
+          <span class="meta">· DM with alice</span>
+        </div>
+        <div class="messages">
+          <div class="msg">
+            <div class="av alice">A</div>
+            <div>
+              <div class="head"><span class="name">Alice Park</span><span class="time">14:14</span></div>
+              <div class="body">what's the status on the payments migration? need to update Carlos before standup</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="av casey">C</div>
+            <div>
+              <div class="head"><span class="name">Casey</span><span class="app">App</span><span class="time">14:14</span></div>
+              <div class="body">
+                <div style="color:#616061;font-size:13px">working…</div>
+                <div class="trace">
+                  <span class="tool">linear-mcp:</span> search_issues(query="payments migration", state="active") <span class="ok">✓ 280ms</span><br>
+                  <span class="tool">github-mcp:</span> search_pulls(repo="acme/api", label="payments-migration") <span class="ok">✓ 340ms</span><br>
+                  <span class="tool">github-mcp:</span> get_pull_request(repo="acme/api", number=1284) <span class="ok">✓ 190ms</span><br>
+                  <span class="tool">notion-mcp:</span> search(query="payments migration", database="engineering-rfcs") <span class="ok">✓ 420ms</span>
+                </div>
+
+                <div class="answer">
+                  <p style="margin:0 0 12px;color:#1d1c1d;font-size:14.5px">Here's where it stands across the three places this work lives:</p>
+
+                  <h4>Linear · <span class="src">payments-migration project</span></h4>
+                  <ul>
+                    <li><span class="pill lin">LIN-892</span> "Move Stripe webhook receiver behind queue" — <strong>In Review</strong>, assigned Bob, last updated 2h ago</li>
+                    <li><span class="pill lin">LIN-905</span> "Backfill historical disputes" — <strong>Done</strong> yesterday by you</li>
+                    <li><span class="pill lin">LIN-870</span> "Refund batch processing" — <strong>In Progress</strong>, assigned Carol, last update <span style="color:#a31515">5 days ago (stale)</span></li>
+                  </ul>
+
+                  <h4>GitHub · <span class="src">open PRs on acme/api</span></h4>
+                  <ul>
+                    <li><span class="pill gh">#1284</span> "Webhook receiver: queue-backed" — Bob's PR, <strong>1 approval / needs 1 more</strong>, CI green, <strong>mergeable</strong></li>
+                    <li><span class="pill gh">#1247</span> "Dispute webhook idempotency" — <strong>Carol's PR, no updates 4 days</strong>, conflicts with main</li>
+                  </ul>
+
+                  <h4>Notion · <span class="src">engineering-rfcs database</span></h4>
+                  <ul>
+                    <li><span class="pill no">RFC-021</span> "Payments migration plan" — last edited by you 2 weeks ago. Phase 2 (webhook queue) is the active phase per the doc.</li>
+                  </ul>
+
+                  <h4>So: what to tell Carlos</h4>
+                  <ul>
+                    <li>Phase 2 (webhook queue) is one review away from shipping.</li>
+                    <li>Phase 3 (refund batch) is stalled — Carol's both blocked PRs are 4+ days idle.</li>
+                    <li>The RFC hasn't been updated since Phase 1 closed; might be worth a quick edit.</li>
+                  </ul>
+                  <p style="color:#616061;font-size:12.5px;margin-top:12px">Sources: 4 read calls across 3 connectors. No state changed. No approval needed.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="av alice">A</div>
+            <div>
+              <div class="head"><span class="name">Alice Park</span><span class="time">14:15</span></div>
+              <div class="body">perfect — thanks. can you also ping Carol about LIN-870?</div>
+            </div>
+          </div>
+        </div>
+        <div class="composer"><div class="box">Message Casey</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h3>What Casey actually did</h3>
+        <div class="stat-row"><span class="k">Tool calls</span><span class="v">4</span></div>
+        <div class="stat-row"><span class="k">Connectors touched</span><span class="v">3 (linear, github, notion)</span></div>
+        <div class="stat-row"><span class="k">Write-effect calls</span><span class="v ok">0</span></div>
+        <div class="stat-row"><span class="k">Approvals required</span><span class="v ok">0</span></div>
+        <div class="stat-row"><span class="k">Wall-clock</span><span class="v">1.4s</span></div>
+        <div class="stat-row"><span class="k">Tokens (in / out)</span><span class="v">2,144 / 380</span></div>
+
+        <h3>Calls in order</h3>
+        <div class="tool-list">
+          <div class="tool-pill">
+            <div class="head-row"><span class="name">linear-mcp.search_issues</span><span class="ms">280ms</span></div>
+            <div class="args"><span class="k">query:</span> "payments migration" · <span class="k">state:</span> active</div>
+          </div>
+          <div class="tool-pill">
+            <div class="head-row"><span class="name">github-mcp.search_pulls</span><span class="ms">340ms</span></div>
+            <div class="args"><span class="k">repo:</span> acme/api · <span class="k">label:</span> payments-migration</div>
+          </div>
+          <div class="tool-pill">
+            <div class="head-row"><span class="name">github-mcp.get_pull_request</span><span class="ms">190ms</span></div>
+            <div class="args"><span class="k">repo:</span> acme/api · <span class="k">number:</span> 1284</div>
+          </div>
+          <div class="tool-pill">
+            <div class="head-row"><span class="name">notion-mcp.search</span><span class="ms">420ms</span></div>
+            <div class="args"><span class="k">query:</span> "payments migration" · <span class="k">db:</span> engineering-rfcs</div>
+          </div>
+        </div>
+
+        <h3>Audit log row</h3>
+        <div style="background:#0a1226;border:1px solid var(--line-2);border-radius:8px;padding:12px;font-family:ui-monospace,monospace;font-size:11.5px;color:var(--ink-2);line-height:1.7;overflow-x:auto">
+{
+  <span style="color:var(--accent)">"turn_id"</span>: <span style="color:var(--ok)">"t_5f2a91"</span>,
+  <span style="color:var(--accent)">"user"</span>: <span style="color:var(--ok)">"U_ALICE_ACME"</span>,
+  <span style="color:var(--accent)">"channel"</span>: <span style="color:var(--ok)">"dm:casey"</span>,
+  <span style="color:var(--accent)">"tools"</span>: 4,
+  <span style="color:var(--accent)">"writes"</span>: 0,
+  <span style="color:var(--accent)">"approvals"</span>: 0,
+  <span style="color:var(--accent)">"ms"</span>: 1402
+}
+        </div>
+
+        <div class="note"><strong>Why this matters.</strong> Three tools, one question, no approval surface to argue with. This is the daily workflow Casey unlocks — and the volume is what makes the product valuable, not the showcase moments.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pager">
+    <a href="02-onboarding.html">← Chapter 2: onboarding</a>
+    <a class="home" href="index.html">Tour home</a>
+    <a href="04-sandbox-fix.html">Next: sandbox fix →</a>
+  </div>
+</main>
+</body>
+</html>

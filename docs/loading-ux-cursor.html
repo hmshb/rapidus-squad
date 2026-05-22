@@ -1,0 +1,1125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Casey — Cursor-style Slack UX Demo (interactive)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #f4f4f5;
+    --panel: #ffffff;
+    --line: #e3e3e5;
+    --ink: #1d1c1d;
+    --mute: #616061;
+    --muteLighter: #868686;
+    --blue: #1264a3;
+    --green: #2eb67d;
+    --red: #e01e5a;
+    --orange: #e8912d;
+    --accent: #007a5a;
+    --checklistBg: #f8f8f8;
+    --buttonBg: #ffffff;
+    --buttonBorder: #c1c1c1;
+    --buttonHover: #f0f0f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    padding: 24px;
+  }
+  .page-title {
+    max-width: 920px;
+    margin: 0 auto 18px;
+    font-size: 14px;
+    color: var(--mute);
+  }
+  .page-title strong { color: var(--ink); }
+  .page-title .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #ecf6f1;
+    color: var(--accent);
+    font-weight: 600;
+    margin-left: 4px;
+    font-size: 12px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+
+  .slack {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 700px;
+  }
+  .slack header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    font-weight: 700;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .slack header .ch { color: var(--mute); font-weight: 500; }
+  .thread { flex: 1; overflow-y: auto; padding: 12px 16px 4px; }
+  .msg {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    align-items: flex-start;
+    position: relative;
+    transition: opacity 0.3s;
+  }
+  .msg.deleted { opacity: 0.4; }
+  .msg.deleted .body > * { text-decoration: line-through; }
+  .avatar {
+    width: 36px; height: 36px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .avatar.bot { background: linear-gradient(135deg, #7c3aed, #4f46e5); }
+  .avatar.user { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+  .body { flex: 1; min-width: 0; }
+  .meta { display: flex; gap: 6px; align-items: baseline; font-size: 13px; }
+  .meta .name { font-weight: 700; }
+  .meta .app {
+    background: var(--line); color: var(--mute);
+    font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 600;
+  }
+  .meta .time { color: var(--mute); font-size: 12px; }
+  .text { margin-top: 2px; font-size: 14px; color: var(--ink); }
+  .mention { color: var(--blue); }
+
+  /* === Reactions === */
+  .reactions { display: flex; gap: 4px; margin-top: 4px; }
+  .reaction {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f8f8f8;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1px 7px;
+    font-size: 12px;
+    color: var(--mute);
+    transition: all 0.2s;
+  }
+  .reaction.active { background: #e3f2fd; border-color: #90caf9; color: #0d47a1; }
+  .reaction.done { background: #e8f5e9; border-color: #a5d6a7; color: #1b5e20; }
+  .reaction.fail { background: #ffebee; border-color: #ef9a9a; color: #b71c1c; }
+  .reaction.cancel { background: #fff3e0; border-color: #ffcc80; color: #e65100; }
+  .reaction .emoji { font-size: 13px; }
+  .reaction.active .emoji {
+    animation: spin 2s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  /* === Status block === */
+  .status-block {
+    margin-top: 6px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--blue);
+    border-radius: 6px;
+    background: var(--checklistBg);
+    overflow: hidden;
+    transition: border-left-color 0.3s;
+  }
+  .status-block.done { border-left-color: var(--green); }
+  .status-block.fail { border-left-color: var(--red); }
+  .status-block.cancel { border-left-color: var(--orange); }
+  .status-header {
+    padding: 10px 14px 4px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .status-context {
+    padding: 0 14px 8px;
+    font-size: 12px;
+    color: var(--mute);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  .status-substatus {
+    padding: 0 14px 10px;
+    font-size: 12px;
+    color: var(--mute);
+    font-style: italic;
+    min-height: 18px;
+  }
+  .checklist {
+    padding: 4px 14px 10px;
+    list-style: none;
+    margin: 0;
+  }
+  .checklist li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13px;
+    color: var(--mute);
+    transition: color 0.3s, opacity 0.3s;
+  }
+  .checklist li.active { color: var(--ink); font-weight: 500; }
+  .checklist li.done { color: var(--ink); }
+  .checklist li.pending { opacity: 0.45; }
+  .check-icon {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .check-icon.pending {
+    border: 1.5px solid #d0d0d0;
+    background: transparent;
+  }
+  .check-icon.active {
+    border: 1.5px solid var(--blue);
+    background: transparent;
+    color: var(--blue);
+  }
+  .check-icon.active::before {
+    content: '';
+    width: 8px; height: 8px;
+    border: 1.5px solid var(--blue);
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 0.9s linear infinite;
+  }
+  .check-icon.done { background: var(--green); color: #fff; }
+  .check-icon.done::before { content: '✓'; }
+  .check-icon.fail { background: var(--red); color: #fff; }
+  .check-icon.fail::before { content: '✕'; }
+
+  .status-actions {
+    padding: 8px 14px 12px;
+    display: flex;
+    gap: 6px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    position: relative;
+    flex-wrap: wrap;
+  }
+  .btn {
+    background: var(--buttonBg);
+    border: 1px solid var(--buttonBorder);
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--buttonHover); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
+  .btn.primary:hover { background: #248a5e; }
+  .btn.danger { color: var(--red); border-color: #f4c2c2; }
+  .btn.overflow { padding: 5px 10px; font-weight: 700; }
+
+  /* === Dropdown menu === */
+  .dropdown {
+    position: absolute;
+    top: 100%;
+    left: 14px;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 50;
+    min-width: 180px;
+    padding: 4px 0;
+    display: none;
+  }
+  .dropdown.open { display: block; }
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .dropdown-item:hover { background: var(--blue); color: #fff; }
+  .dropdown-item .shortcut {
+    margin-left: auto;
+    color: var(--muteLighter);
+    font-size: 11px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  .dropdown-item:hover .shortcut { color: rgba(255,255,255,0.7); }
+  .dropdown-divider {
+    height: 1px;
+    background: var(--line);
+    margin: 4px 0;
+  }
+  .dropdown-item.destructive { color: var(--red); }
+  .dropdown-item.destructive:hover { background: var(--red); color: #fff; }
+
+  /* === Summary === */
+  .summary {
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .summary code {
+    background: var(--line);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px;
+  }
+  .summary .label {
+    font-weight: 700;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* === Composer === */
+  .composer {
+    border-top: 1px solid var(--line);
+    padding: 10px 14px 14px;
+  }
+  .composer-input {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--muteLighter);
+    font-size: 13px;
+  }
+
+  /* === Controls === */
+  .controls {
+    max-width: 920px;
+    margin: 18px auto 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 13px;
+    color: var(--mute);
+    flex-wrap: wrap;
+  }
+  .controls button {
+    background: var(--ink);
+    color: #fff;
+    border: 0;
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .controls button:hover { background: #000; }
+  .controls .stage-indicator {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px;
+    background: #fff;
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .controls .scenario {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+  }
+  .controls .scenario button {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    font-weight: 500;
+  }
+  .controls .scenario button.active { background: var(--ink); color: #fff; }
+
+  /* === Toast === */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--ink);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    opacity: 0;
+    transition: all 0.25s;
+    z-index: 100;
+    pointer-events: none;
+    max-width: 360px;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast .toast-title { font-weight: 700; margin-bottom: 2px; }
+
+  /* === Modal === */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 10px;
+    width: 480px;
+    max-width: 92vw;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.24);
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .modal-close {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font-size: 20px;
+    color: var(--mute);
+    line-height: 1;
+  }
+  .modal-body {
+    padding: 16px 18px;
+    font-size: 13px;
+    line-height: 1.5;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  .modal-body pre {
+    background: #f4f4f5;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
+    overflow-x: auto;
+    color: #333;
+  }
+  .modal-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .feedback-row { display: flex; gap: 10px; margin: 12px 0; }
+  .feedback-btn {
+    flex: 1;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .feedback-btn:hover { background: var(--buttonHover); }
+  .feedback-btn.selected { border-color: var(--blue); background: #e3f2fd; }
+  .feedback-text {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font: 13px/1.4 -apple-system, BlinkMacSystemFont, sans-serif;
+    resize: vertical;
+    min-height: 70px;
+  }
+
+  /* === Followup composer === */
+  .followup-row {
+    display: flex;
+    gap: 6px;
+    padding: 8px 14px 4px;
+    border-top: 1px solid var(--line);
+    background: #fafafa;
+    display: none;
+  }
+  .followup-row.open { display: flex; }
+  .followup-row input {
+    flex: 1;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    outline: none;
+  }
+  .followup-row input:focus { border-color: var(--blue); }
+
+  .annotation {
+    max-width: 920px;
+    margin: 18px auto 0;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 13px;
+  }
+  .annotation h3 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mute);
+  }
+  .annotation ul { margin: 0; padding-left: 18px; }
+  .annotation li { margin-bottom: 4px; }
+  .annotation code {
+    background: #f4f4f5;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">
+  <strong>Casey — Cursor-style Slack UX</strong> <span class="pill">interactive demo</span><br/>
+  Dynamic checklist driven by <code>TodoWrite</code> events. All buttons and the <code>⋯</code> overflow menu actually work — click them.
+</div>
+
+<div class="wrap">
+  <div class="slack">
+    <header><span>📝</span> Thread <span class="ch">in #rapidus-squad</span></header>
+    <div class="thread" id="thread">
+
+      <div class="msg" id="userMsg">
+        <div class="avatar user">H</div>
+        <div class="body">
+          <div class="meta">
+            <span class="name">Hassan Mehmood</span>
+            <span class="time">3:21 PM</span>
+          </div>
+          <div class="text" id="userText"><span class="mention">@Casey</span> fix tenant isolation in the personas module</div>
+          <div class="reactions">
+            <span class="reaction" id="userReaction">
+              <span class="emoji" id="userReactionEmoji">⏳</span>
+              <span>1</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg" id="botMsg">
+        <div class="avatar bot">C</div>
+        <div class="body">
+          <div class="meta">
+            <span class="name">Casey</span>
+            <span class="app">APP</span>
+            <span class="time">3:21 PM</span>
+          </div>
+
+          <div class="status-block" id="statusBlock">
+            <div class="status-header" id="statusHeader">🛠️ Working on: fix tenant isolation in personas</div>
+            <div class="status-context" id="statusContext">test-claude-automation • bot/persona-tenant-fix • sonnet-4.5</div>
+            <div class="status-substatus" id="statusSubstatus">Starting up…</div>
+
+            <ul class="checklist" id="checklist" style="display:none"></ul>
+
+            <div class="summary" id="summary" style="display:none"></div>
+
+            <div class="followup-row" id="followupRow">
+              <input type="text" id="followupInput" placeholder="Add follow-up instructions…" />
+              <button class="btn" id="followupSend">Send</button>
+              <button class="btn" id="followupCancel">✕</button>
+            </div>
+
+            <div class="status-actions" id="actions">
+              <button class="btn danger" id="cancelBtn">Cancel</button>
+              <div class="dropdown" id="dropdown"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="composer">
+      <div class="composer-input">Reply…</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="playBtn">▶ Replay</button>
+    <span>Stage:</span>
+    <span class="stage-indicator" id="stageLabel">idle</span>
+
+    <div class="scenario">
+      <button class="active" data-scenario="bugfix">Bug fix</button>
+      <button data-scenario="qa">Run QA</button>
+      <button data-scenario="lookup">Quick lookup</button>
+      <button data-scenario="fail">Failure</button>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <h3>Try the interactivity</h3>
+    <ul>
+      <li>Click <strong>Cancel</strong> mid-run — status transitions to cancelled, actions become <code>[Retry] [⋯]</code></li>
+      <li>Wait for completion, then click the <strong>⋯</strong> overflow menu — every item is wired up (Follow-up, Re-run, Request ID, Feedback, Delete)</li>
+      <li>Click <strong>Follow-up</strong> in the menu — an input appears so you can add instructions; Send re-runs with the appended prompt</li>
+      <li>Click <strong>Feedback</strong> — opens a real modal with thumbs up/down + text field</li>
+      <li>Click <strong>Request ID</strong> — copies a fake request ID to clipboard (toast confirms)</li>
+      <li>Click <strong>Delete</strong> — the bot message visually deletes (greys + strikethrough)</li>
+      <li>Click <strong>View PR #284</strong> or <strong>View logs</strong> — opens a modal with the relevant content</li>
+      <li>Top-right scenario buttons swap to different prompts with different TodoWrite-generated checklists</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <div class="toast-title" id="toastTitle"></div>
+  <div id="toastBody"></div>
+</div>
+
+<!-- Modal -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span id="modalTitle"></span>
+      <button class="modal-close" id="modalClose">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- Scenarios: each defines the prompt + a dynamic todo sequence ----------
+  // Each `todos` entry is a snapshot of the TodoWrite call: full list, with statuses.
+  // The renderer replaces the checklist with each snapshot — same as how production
+  // would receive successive TodoWrite tool_use events.
+  const scenarios = {
+    bugfix: {
+      prompt: 'fix tenant isolation in the personas module',
+      branch: 'bot/persona-tenant-fix',
+      summary: {
+        label: 'Summary',
+        body: 'Found 3 endpoints in persona_routes.py missing the company_id filter. Patched all three, regenerated affected queries, and re-ran pytest -k tenant_isolation — 47 passed.',
+        footer: 'PR #284 opened on bot/persona-tenant-fix. Awaiting your review.',
+      },
+      snapshots: [
+        { at: 1500,  list: [
+          ['Scan persona_routes.py for missing company_id filters', 'in_progress'],
+        ]},
+        { at: 3200,  list: [
+          ['Scan persona_routes.py for missing company_id filters', 'completed'],
+          ['Patch the 3 unfiltered endpoints', 'in_progress'],
+          ['Run pytest -k tenant_isolation', 'pending'],
+          ['Open draft PR on bot/persona-tenant-fix', 'pending'],
+        ]},
+        { at: 6500,  list: [
+          ['Scan persona_routes.py for missing company_id filters', 'completed'],
+          ['Patch the 3 unfiltered endpoints', 'completed'],
+          ['Run pytest -k tenant_isolation', 'in_progress'],
+          ['Open draft PR on bot/persona-tenant-fix', 'pending'],
+        ]},
+        { at: 9000, list: [
+          ['Scan persona_routes.py for missing company_id filters', 'completed'],
+          ['Patch the 3 unfiltered endpoints', 'completed'],
+          ['Run pytest -k tenant_isolation', 'completed'],
+          ['Open draft PR on bot/persona-tenant-fix', 'in_progress'],
+        ]},
+        { at: 11000, list: [
+          ['Scan persona_routes.py for missing company_id filters', 'completed'],
+          ['Patch the 3 unfiltered endpoints', 'completed'],
+          ['Run pytest -k tenant_isolation', 'completed'],
+          ['Open draft PR on bot/persona-tenant-fix', 'completed'],
+        ]},
+        { at: 11500, stage: 'complete' },
+      ],
+    },
+
+    qa: {
+      prompt: 'run /qa on personas',
+      branch: 'bot/qa-personas',
+      summary: {
+        label: 'QA report',
+        body: 'Ran the personas module end-to-end. 12 happy-path tests passed. 1 issue found — /api/personas/{id} returns 500 when accessed by a different tenant (should be 404).',
+        footer: 'Filed as #285. No PR opened (read-only QA pass).',
+      },
+      snapshots: [
+        { at: 1500, list: [
+          ['Spawn QA agents (UI + API + admin)', 'in_progress'],
+        ]},
+        { at: 3500, list: [
+          ['Spawn QA agents (UI + API + admin)', 'completed'],
+          ['Run UI golden-path tests via Playwright', 'in_progress'],
+          ['Run API tests', 'pending'],
+        ]},
+        { at: 6500, list: [
+          ['Spawn QA agents (UI + API + admin)', 'completed'],
+          ['Run UI golden-path tests via Playwright', 'completed'],
+          ['Run API tests', 'in_progress'],
+        ]},
+        { at: 9500, list: [
+          ['Spawn QA agents (UI + API + admin)', 'completed'],
+          ['Run UI golden-path tests via Playwright', 'completed'],
+          ['Run API tests', 'completed'],
+        ]},
+        { at: 10000, stage: 'complete' },
+      ],
+    },
+
+    lookup: {
+      prompt: 'what does persona_service.embed_post do?',
+      branch: '—',
+      summary: {
+        label: 'Answer',
+        body: 'embed_post takes a post body, calls the configured embedding provider (sentence-transformers/MiniLM-L6-v2 by default, or OpenAI text-embedding-3-small), and writes the resulting vector to either the embedding (384-dim) or embedding_1536 column on the posts table.',
+        footer: 'Defined in backend/app/services/persona_service.py:42.',
+      },
+      // No TodoWrite for trivial lookups — Casey just thinks and answers.
+      // Status block stays "Working…" with a sub-status only.
+      snapshots: [
+        { at: 500,  substatus: 'Reading persona_service.py…' },
+        { at: 3000, substatus: 'Cross-referencing the embedding provider config…' },
+        { at: 5000, substatus: 'Composing answer…' },
+        { at: 6500, stage: 'complete' },
+      ],
+    },
+
+    fail: {
+      prompt: 'fix tenant isolation in the personas module',
+      branch: 'bot/persona-tenant-fix',
+      summary: {
+        label: 'Error',
+        body: 'pytest -k tenant_isolation failed: 2 tests broke after the patch. The fix introduced a regression in /api/personas/{id}/posts ordering. Rolling back changes.',
+        footer: 'No PR opened. Logs available below.',
+      },
+      snapshots: [
+        { at: 1500, list: [
+          ['Scan persona_routes.py for missing company_id filters', 'in_progress'],
+        ]},
+        { at: 3200, list: [
+          ['Scan persona_routes.py for missing company_id filters', 'completed'],
+          ['Patch the 3 unfiltered endpoints', 'in_progress'],
+          ['Run pytest -k tenant_isolation', 'pending'],
+          ['Open draft PR on bot/persona-tenant-fix', 'pending'],
+        ]},
+        { at: 6500, list: [
+          ['Scan persona_routes.py for missing company_id filters', 'completed'],
+          ['Patch the 3 unfiltered endpoints', 'completed'],
+          ['Run pytest -k tenant_isolation', 'in_progress'],
+          ['Open draft PR on bot/persona-tenant-fix', 'pending'],
+        ]},
+        { at: 9500, list: [
+          ['Scan persona_routes.py for missing company_id filters', 'completed'],
+          ['Patch the 3 unfiltered endpoints', 'completed'],
+          ['Run pytest -k tenant_isolation', 'failed'],
+          ['Open draft PR on bot/persona-tenant-fix', 'pending'],
+        ], stage: 'failed' },
+      ],
+    },
+  };
+
+  // ---------- DOM refs ----------
+  const $ = id => document.getElementById(id);
+  const STAGE = $('stageLabel'),  PLAY = $('playBtn');
+  const userReaction = $('userReaction'), userReactionEmoji = $('userReactionEmoji');
+  const userText = $('userText');
+  const statusBlock = $('statusBlock'), statusHeader = $('statusHeader');
+  const statusContext = $('statusContext'), statusSubstatus = $('statusSubstatus');
+  const checklist = $('checklist'), summary = $('summary');
+  const actions = $('actions'), dropdown = $('dropdown');
+  const botMsg = $('botMsg');
+  const followupRow = $('followupRow'), followupInput = $('followupInput');
+  const followupSend = $('followupSend'), followupCancel = $('followupCancel');
+  const toast = $('toast'), toastTitle = $('toastTitle'), toastBody = $('toastBody');
+  const modal = $('modal'), modalTitle = $('modalTitle'), modalBody = $('modalBody');
+  const modalFooter = $('modalFooter'), modalClose = $('modalClose');
+
+  // ---------- State ----------
+  let scenario = 'bugfix';
+  let timers = [];
+  let currentRequestId = '';
+  let runState = 'idle'; // idle | running | complete | cancelled | failed | deleted
+
+  // ---------- Utilities ----------
+  function genRequestId() {
+    return 'req_' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function showToast(title, body) {
+    toastTitle.textContent = title;
+    toastBody.textContent = body || '';
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => toast.classList.remove('show'), 2400);
+  }
+
+  function openModal(title, bodyEls, footerEls) {
+    modalTitle.textContent = title;
+    while (modalBody.firstChild) modalBody.removeChild(modalBody.firstChild);
+    while (modalFooter.firstChild) modalFooter.removeChild(modalFooter.firstChild);
+    bodyEls.forEach(e => modalBody.appendChild(e));
+    (footerEls || []).forEach(e => modalFooter.appendChild(e));
+    modal.classList.add('open');
+  }
+  function closeModal() { modal.classList.remove('open'); }
+  modalClose.addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+  function el(tag, opts = {}, children = []) {
+    const e = document.createElement(tag);
+    if (opts.class) e.className = opts.class;
+    if (opts.text) e.textContent = opts.text;
+    if (opts.attrs) for (const k in opts.attrs) e.setAttribute(k, opts.attrs[k]);
+    if (opts.on) for (const k in opts.on) e.addEventListener(k, opts.on[k]);
+    children.forEach(c => e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c));
+    return e;
+  }
+
+  function clearChildren(parent) {
+    while (parent.firstChild) parent.removeChild(parent.firstChild);
+  }
+
+  // ---------- Rendering ----------
+  function renderChecklist(list) {
+    clearChildren(checklist);
+    checklist.style.display = list && list.length ? '' : 'none';
+    if (!list) return;
+    list.forEach(([text, status]) => {
+      const li = document.createElement('li');
+      li.className = status === 'completed' ? 'done'
+                  : status === 'in_progress' ? 'active'
+                  : status === 'failed' ? 'done'
+                  : 'pending';
+      const icon = document.createElement('span');
+      icon.className = 'check-icon ' + (status === 'completed' ? 'done'
+                  : status === 'in_progress' ? 'active'
+                  : status === 'failed' ? 'fail'
+                  : 'pending');
+      const label = document.createElement('span');
+      label.textContent = text;
+      li.appendChild(icon);
+      li.appendChild(label);
+      checklist.appendChild(li);
+    });
+  }
+
+  function renderSummary(s) {
+    clearChildren(summary);
+    const label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = s.label;
+    summary.appendChild(label);
+    summary.appendChild(document.createTextNode(s.body));
+    if (s.footer) {
+      summary.appendChild(document.createElement('br'));
+      summary.appendChild(document.createElement('br'));
+      summary.appendChild(document.createTextNode(s.footer));
+    }
+    summary.style.display = '';
+  }
+
+  function setActions(mode) {
+    clearChildren(actions);
+    // Re-append the dropdown container so it's always there
+    actions.appendChild(dropdown);
+    dropdown.classList.remove('open');
+
+    if (mode === 'running') {
+      const cancel = el('button', { class: 'btn danger', text: 'Cancel', on: { click: onCancel } });
+      actions.insertBefore(cancel, dropdown);
+    } else if (mode === 'complete') {
+      actions.insertBefore(el('button', { class: 'btn primary', text: 'View PR #284', on: { click: onViewPR } }), dropdown);
+      const more = el('button', { class: 'btn overflow', text: '⋯', on: { click: toggleDropdown } });
+      actions.insertBefore(more, dropdown);
+    } else if (mode === 'failed') {
+      actions.insertBefore(el('button', { class: 'btn primary', text: 'Retry', on: { click: onRetry } }), dropdown);
+      actions.insertBefore(el('button', { class: 'btn', text: 'View logs', on: { click: onViewLogs } }), dropdown);
+      const more = el('button', { class: 'btn overflow', text: '⋯', on: { click: toggleDropdown } });
+      actions.insertBefore(more, dropdown);
+    } else if (mode === 'cancelled') {
+      actions.insertBefore(el('button', { class: 'btn primary', text: 'Retry', on: { click: onRetry } }), dropdown);
+      const more = el('button', { class: 'btn overflow', text: '⋯', on: { click: toggleDropdown } });
+      actions.insertBefore(more, dropdown);
+    }
+  }
+
+  // ---------- Dropdown ----------
+  function buildDropdown(mode) {
+    clearChildren(dropdown);
+    const items = [];
+
+    if (mode === 'complete') {
+      items.push({ label: 'Add follow-up…', onClick: openFollowup });
+      items.push({ label: 'Re-run', onClick: onRetry });
+      items.push({ label: 'View request ID', onClick: onCopyRequestId });
+      items.push({ label: 'Give feedback', onClick: openFeedbackModal });
+      items.push({ divider: true });
+      items.push({ label: 'Delete', destructive: true, onClick: onDelete });
+    } else if (mode === 'failed' || mode === 'cancelled') {
+      items.push({ label: 'View request ID', onClick: onCopyRequestId });
+      items.push({ label: 'Give feedback', onClick: openFeedbackModal });
+      items.push({ divider: true });
+      items.push({ label: 'Delete', destructive: true, onClick: onDelete });
+    }
+
+    items.forEach(it => {
+      if (it.divider) {
+        dropdown.appendChild(el('div', { class: 'dropdown-divider' }));
+      } else {
+        const item = el('div', {
+          class: 'dropdown-item' + (it.destructive ? ' destructive' : ''),
+          text: it.label,
+          on: { click: () => { dropdown.classList.remove('open'); it.onClick(); } },
+        });
+        dropdown.appendChild(item);
+      }
+    });
+  }
+
+  function toggleDropdown(e) {
+    e.stopPropagation();
+    buildDropdown(runState);
+    dropdown.classList.toggle('open');
+  }
+
+  document.addEventListener('click', () => dropdown.classList.remove('open'));
+  dropdown.addEventListener('click', e => e.stopPropagation());
+
+  // ---------- Action handlers ----------
+  function onCancel() {
+    clearTimers();
+    runState = 'cancelled';
+    userReaction.className = 'reaction cancel';
+    userReactionEmoji.textContent = '⏸';
+    statusBlock.classList.remove('done', 'fail');
+    statusBlock.classList.add('cancel');
+    statusHeader.textContent = '⏸ Cancelled by you';
+    statusSubstatus.textContent = '';
+    setActions('cancelled');
+    showToast('Cancelled', 'Casey stopped working. You can retry or delete this run.');
+  }
+
+  function onRetry() {
+    showToast('Re-running…', 'Spawning a fresh agent for the same prompt.');
+    play();
+  }
+
+  function onViewPR() {
+    const body = [];
+    body.push(el('div', { text: 'PR #284 — Fix tenant isolation in persona routes' }));
+    body.push(el('br'));
+    body.push(el('div', { text: 'Branch: bot/persona-tenant-fix → main' }));
+    body.push(el('br'));
+    body.push(el('div', { text: 'Files changed: 1 (+12 / −3)' }));
+    const pre = el('pre');
+    pre.textContent = `diff --git a/backend/app/routers/persona_routes.py b/backend/app/routers/persona_routes.py
+@@ -84,7 +84,7 @@ async def list_personas(
+     db: AsyncSession = Depends(get_db),
+     user: User = Depends(get_current_user),
+ ):
+-    rows = await db.execute(select(Persona))
++    rows = await db.execute(select(Persona).where(Persona.company_id == user.company_id))
+     return [PersonaOut.model_validate(r) for r in rows.scalars().all()]`;
+    body.push(pre);
+    body.push(el('div', { text: "Status: Draft (awaiting Hassan's review).", attrs: { style: 'color: var(--mute); margin-top: 8px;' } }));
+
+    const openBtn = el('button', { class: 'btn primary', text: 'Open on GitHub', on: { click: () => { showToast('Would open', 'github.com/hmshb/test-claude-automation/pull/284'); closeModal(); } } });
+    const close = el('button', { class: 'btn', text: 'Close', on: { click: closeModal } });
+    openModal('PR #284', body, [close, openBtn]);
+  }
+
+  function onCopyRequestId() {
+    if (navigator.clipboard) navigator.clipboard.writeText(currentRequestId).catch(() => {});
+    showToast('Request ID copied', currentRequestId);
+  }
+
+  function openFeedbackModal() {
+    const row = el('div', { class: 'feedback-row' });
+    let choice = null;
+    const up = el('button', { class: 'feedback-btn', text: '👍 Good' });
+    const down = el('button', { class: 'feedback-btn', text: '👎 Bad' });
+    up.addEventListener('click', () => { choice = 'up'; up.classList.add('selected'); down.classList.remove('selected'); });
+    down.addEventListener('click', () => { choice = 'down'; down.classList.add('selected'); up.classList.remove('selected'); });
+    row.appendChild(up); row.appendChild(down);
+
+    const ta = document.createElement('textarea');
+    ta.className = 'feedback-text';
+    ta.placeholder = "What worked? What didn't? (optional)";
+
+    const reqLine = el('div', { text: 'Attaches request ID: ' + currentRequestId, attrs: { style: 'color: var(--mute); font-size: 12px; margin-top: 12px;' } });
+
+    const submit = el('button', { class: 'btn primary', text: 'Send feedback', on: { click: () => {
+      if (!choice) { showToast('Pick one', 'Select 👍 or 👎 first.'); return; }
+      closeModal();
+      showToast('Thanks!', choice === 'up' ? 'Recorded as 👍 with request ID attached.' : 'Recorded as 👎 with request ID attached.');
+    }}});
+    const cancelBtn = el('button', { class: 'btn', text: 'Cancel', on: { click: closeModal } });
+
+    openModal('Give feedback', [row, ta, reqLine], [cancelBtn, submit]);
+  }
+
+  function onDelete() {
+    botMsg.classList.add('deleted');
+    runState = 'deleted';
+    showToast('Deleted', 'The Casey run was removed from the thread.');
+  }
+
+  function openFollowup() {
+    followupRow.classList.add('open');
+    followupInput.value = '';
+    followupInput.focus();
+  }
+  followupCancel.addEventListener('click', () => followupRow.classList.remove('open'));
+  followupSend.addEventListener('click', () => {
+    const t = followupInput.value.trim();
+    if (!t) return;
+    followupRow.classList.remove('open');
+    userText.textContent = '';
+    const mention = document.createElement('span');
+    mention.className = 'mention'; mention.textContent = '@Casey ';
+    userText.appendChild(mention);
+    userText.appendChild(document.createTextNode(scenarios[scenario].prompt + ' — and also: ' + t));
+    showToast('Follow-up sent', 'Same thread, same agent, same session.');
+    play();
+  });
+  followupInput.addEventListener('keydown', e => { if (e.key === 'Enter') followupSend.click(); });
+
+  function onViewLogs() {
+    const pre = el('pre');
+    pre.textContent = `[15:21:01.244] system.init  session_id=2b31a561  model=claude-sonnet-4-5  tools=38
+[15:21:02.110] assistant    tool_use=Read  file=backend/app/routers/persona_routes.py
+[15:21:03.892] assistant    tool_use=TodoWrite  4 items
+[15:21:08.401] assistant    tool_use=Edit  file=backend/app/routers/persona_routes.py
+[15:21:09.220] assistant    tool_use=Edit  file=backend/app/services/persona_service.py
+[15:21:11.503] assistant    tool_use=Bash  cmd="pytest -k tenant_isolation -x"
+[15:21:14.802] user         tool_result  exit_code=1  output=AssertionError: ordering changed
+[15:21:15.001] result       subtype=error  duration_ms=13757  cost_usd=$0.082
+[15:21:15.044] casey        rolling back patch  branch=bot/persona-tenant-fix`;
+
+    const close = el('button', { class: 'btn', text: 'Close', on: { click: closeModal } });
+    const copy = el('button', { class: 'btn', text: 'Copy', on: { click: () => {
+      if (navigator.clipboard) navigator.clipboard.writeText(pre.textContent).catch(() => {});
+      showToast('Logs copied', 'Pasted to clipboard.');
+    }}});
+    openModal('Casey — logs (request ' + currentRequestId + ')', [pre], [copy, close]);
+  }
+
+  // ---------- Run loop ----------
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+  function reset() {
+    clearTimers();
+    botMsg.classList.remove('deleted');
+    runState = 'running';
+    currentRequestId = genRequestId();
+
+    const s = scenarios[scenario];
+    clearChildren(userText);
+    const mention = document.createElement('span');
+    mention.className = 'mention'; mention.textContent = '@Casey ';
+    userText.appendChild(mention);
+    userText.appendChild(document.createTextNode(s.prompt));
+
+    userReaction.className = 'reaction active';
+    userReactionEmoji.textContent = '⏳';
+
+    statusBlock.classList.remove('done', 'fail', 'cancel');
+    statusHeader.textContent = '🛠️ Working on: ' + s.prompt;
+    statusContext.textContent = 'test-claude-automation • ' + s.branch + ' • sonnet-4.5 • ' + currentRequestId;
+    statusSubstatus.textContent = 'Starting up…';
+
+    clearChildren(checklist); checklist.style.display = 'none';
+    clearChildren(summary); summary.style.display = 'none';
+    followupRow.classList.remove('open');
+
+    setActions('running');
+    STAGE.textContent = 'starting';
+  }
+
+  function play() {
+    reset();
+    const s = scenarios[scenario];
+
+    s.snapshots.forEach(snap => {
+      timers.push(setTimeout(() => {
+        if (runState !== 'running') return;
+        STAGE.textContent = snap.stage || 'todo_update';
+
+        if (snap.substatus) statusSubstatus.textContent = snap.substatus;
+
+        if (snap.list) {
+          statusSubstatus.textContent = '';
+          renderChecklist(snap.list);
+        }
+
+        if (snap.stage === 'complete') {
+          runState = 'complete';
+          userReaction.className = 'reaction done';
+          userReactionEmoji.textContent = '✅';
+          statusBlock.classList.add('done');
+          statusHeader.textContent = '✅ Completed: ' + s.prompt;
+          checklist.style.display = 'none';
+          statusSubstatus.textContent = '';
+          renderSummary(s.summary);
+          setActions('complete');
+        }
+
+        if (snap.stage === 'failed') {
+          runState = 'failed';
+          userReaction.className = 'reaction fail';
+          userReactionEmoji.textContent = '❌';
+          statusBlock.classList.add('fail');
+          statusHeader.textContent = '❌ Failed: ' + s.prompt;
+          statusSubstatus.textContent = '';
+          renderSummary(s.summary);
+          setActions('failed');
+        }
+      }, snap.at));
+    });
+  }
+
+  PLAY.addEventListener('click', play);
+
+  document.querySelectorAll('.scenario button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.scenario button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      scenario = btn.dataset.scenario;
+      play();
+    });
+  });
+
+  // Boot
+  play();
+})();
+</script>
+
+</body>
+</html>

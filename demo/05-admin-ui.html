@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter 5 — Admin UI</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #07090f; --bg-2: #0d1320; --panel: #111a2e; --panel-2: #0c142a;
+    --ink: #e7ecf5; --ink-2: #c3cee0; --mute: #7d8ba8;
+    --line: #1c2541; --line-2: #233055;
+    --accent: #79c0ff; --accent-2: #b794ff;
+    --ok: #6ee7a8; --warn: #f5b461; --bad: #f47878;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); min-height: 100vh; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .top { max-width: 1280px; margin: 0 auto; padding: 28px 32px 0; display: flex; justify-content: space-between; font-size: 13px; color: var(--mute); }
+  .top a { color: var(--accent); text-decoration: none; }
+  .top .nav a { margin-left: 14px; }
+  main { max-width: 1280px; margin: 0 auto; padding: 24px 32px 96px; }
+  h1 { font-size: 30px; margin: 18px 0 6px; letter-spacing: -0.01em; }
+  .lede { color: var(--ink-2); max-width: 760px; margin: 0 0 8px; }
+  .who { color: var(--mute); font-size: 13px; margin-bottom: 24px; }
+  .who strong { color: var(--ink-2); }
+
+  /* Admin UI shell */
+  .app {
+    background: linear-gradient(180deg, #0a1224, var(--panel-2));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+
+  .side {
+    background: #08101f;
+    border-right: 1px solid var(--line);
+    padding: 18px 0 20px;
+  }
+  .side .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 18px 22px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 14px;
+  }
+  .side .brand .logo {
+    width: 30px; height: 30px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 800; font-size: 14px;
+  }
+  .side .brand .name { font-weight: 700; font-size: 14px; }
+  .side .brand .sub { font-size: 11px; color: var(--mute); }
+
+  .side .label { padding: 14px 18px 6px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); font-weight: 700; }
+  .side a.nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 18px; color: var(--ink-2); font-size: 13.5px; text-decoration: none;
+    border-left: 3px solid transparent;
+  }
+  .side a.nav-item:hover { background: rgba(255,255,255,0.02); color: var(--ink); }
+  .side a.nav-item.active { background: rgba(121,192,255,0.08); color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
+  .side a.nav-item .ic { width: 14px; opacity: 0.7; }
+  .side a.nav-item .badge { margin-left: auto; background: var(--bad); color: white; font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 700; }
+
+  .side .footer { position: relative; margin-top: 30px; padding: 14px 18px; border-top: 1px solid var(--line); color: var(--mute); font-size: 12px; }
+  .side .footer .user { display: flex; gap: 10px; align-items: center; color: var(--ink); }
+  .side .footer .user .av { width: 26px; height: 26px; border-radius: 5px; background: #e8912d; color: white; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+
+  .stage { padding: 22px 28px 30px; }
+  .crumb { color: var(--mute); font-size: 12.5px; margin-bottom: 10px; }
+  .stage h2 { margin: 0 0 14px; font-size: 22px; letter-spacing: -0.01em; }
+  .stage .h-meta { color: var(--mute); font-size: 13px; margin-bottom: 22px; }
+
+  /* Stat cards row */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px; }
+  .stat-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .stat-card .label { color: var(--mute); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
+  .stat-card .val { font-size: 24px; font-weight: 700; margin-top: 4px; letter-spacing: -0.01em; }
+  .stat-card .delta { font-size: 12px; color: var(--ok); margin-top: 2px; }
+  .stat-card .delta.bad { color: var(--bad); }
+
+  /* Panels grid */
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pcard {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; overflow: hidden;
+  }
+  .pcard .ph { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+  .pcard .ph h4 { margin: 0; font-size: 14px; }
+  .pcard .ph a { color: var(--accent); text-decoration: none; font-size: 12.5px; }
+  .pcard .pb { padding: 6px 0; }
+
+  /* Approval rows */
+  .req {
+    padding: 12px 18px; border-bottom: 1px solid var(--line);
+    display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+  }
+  .req:last-child { border-bottom: none; }
+  .req .av { width: 32px; height: 32px; border-radius: 6px; color: white; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .req .av.green { background: #2bb673; }
+  .req .av.purple { background: #8e44ad; }
+  .req .av.orange { background: #e8912d; }
+  .req .name { font-weight: 600; font-size: 14px; }
+  .req .info { font-size: 12.5px; color: var(--mute); }
+  .req .actions { display: flex; gap: 6px; }
+  .req .btn {
+    font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 5px;
+    border: 1px solid var(--line-2); background: var(--bg-2); color: var(--ink); cursor: pointer;
+  }
+  .req .btn.approve { background: rgba(110,231,168,0.12); border-color: rgba(110,231,168,0.4); color: var(--ok); }
+  .req .btn.deny { background: rgba(244,120,120,0.08); border-color: rgba(244,120,120,0.3); color: var(--bad); }
+
+  /* Connectors */
+  .conn {
+    padding: 12px 18px; border-bottom: 1px solid var(--line);
+    display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center;
+  }
+  .conn:last-child { border-bottom: none; }
+  .conn .ico {
+    width: 32px; height: 32px; border-radius: 6px; background: var(--bg-2); border: 1px solid var(--line-2);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px;
+  }
+  .conn .ico.gh { color: white; background: #24292f; border-color: #24292f; }
+  .conn .ico.li { color: white; background: #5e6ad2; border-color: #5e6ad2; }
+  .conn .ico.no { color: white; background: #000; border-color: #000; }
+  .conn .ico.sl { color: white; background: #611f69; border-color: #611f69; }
+  .conn .meta .name { font-weight: 600; font-size: 14px; }
+  .conn .meta .sub { font-size: 12px; color: var(--mute); }
+  .conn .status { font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
+  .conn .status.ok { color: var(--ok); }
+  .conn .status.warn { color: var(--warn); }
+  .conn .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+  /* Audit log */
+  .audit { padding: 0; font-family: ui-monospace, monospace; font-size: 12.5px; }
+  .audit .row { padding: 8px 18px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 70px 110px 1fr; gap: 12px; }
+  .audit .row:last-child { border-bottom: none; }
+  .audit .row .t { color: var(--mute); }
+  .audit .row .kind { color: var(--accent); }
+  .audit .row .kind.warn { color: var(--warn); }
+  .audit .row .kind.bad { color: var(--bad); }
+  .audit .row .det { color: var(--ink-2); }
+
+  /* Schedules */
+  .sched { padding: 0; }
+  .sched .row {
+    padding: 12px 18px; border-bottom: 1px solid var(--line);
+    display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center;
+  }
+  .sched .row:last-child { border-bottom: none; }
+  .sched .name { font-weight: 600; font-size: 14px; }
+  .sched .sub { color: var(--mute); font-size: 12px; }
+  .sched .when {
+    font-family: ui-monospace, monospace; font-size: 12px; color: var(--accent);
+    padding: 4px 8px; border: 1px solid rgba(121,192,255,0.3); border-radius: 5px;
+    background: rgba(121,192,255,0.05);
+  }
+
+  /* Health page */
+  .health {
+    margin-top: 28px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden;
+  }
+  .health .ph { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 14px; }
+  .health .ph h4 { margin: 0; font-size: 15px; }
+  .health .ph .live { font-size: 11px; color: var(--ok); display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+  .health .ph .live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .health .ph .killswitch {
+    margin-left: auto; padding: 7px 14px; border-radius: 6px;
+    background: rgba(244,120,120,0.08); border: 1px solid rgba(244,120,120,0.4);
+    color: var(--bad); font-weight: 700; font-size: 12px; cursor: pointer;
+  }
+  .health .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; }
+  .health .col { padding: 16px 20px; border-right: 1px solid var(--line); }
+  .health .col:last-child { border-right: none; }
+  .health .col h5 { margin: 0 0 10px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); font-weight: 700; }
+  .health .item { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 5px 0; font-size: 13px; }
+  .health .item .lbl { color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
+  .health .item .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .health .item .dot.ok { background: var(--ok); }
+  .health .item .dot.warn { background: var(--warn); }
+  .health .item .dot.bad { background: var(--bad); }
+  .health .item .dot.cold { background: var(--mute); }
+  .health .item .v { color: var(--mute); font-family: ui-monospace, monospace; font-size: 12px; }
+  .health .item .v.ok { color: var(--ok); }
+  .health .item .v.warn { color: var(--warn); }
+
+  .health .lastturn {
+    border-top: 1px solid var(--line); padding: 16px 20px;
+    font-size: 13px; color: var(--ink-2); line-height: 1.6;
+  }
+  .health .lastturn .lbl { color: var(--mute); text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+  .health .lastturn .when { color: var(--mute); font-size: 12px; }
+  .health .lastturn code { background: var(--bg-2); padding: 1px 6px; border-radius: 3px; color: var(--accent); font-size: 12px; }
+
+  .health .err {
+    border-top: 1px solid var(--line); padding: 14px 20px;
+  }
+  .health .err .lbl { color: var(--mute); text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px; font-weight: 700; margin-bottom: 8px; }
+  .health .err table { width: 100%; font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink-2); }
+  .health .err table td { padding: 4px 0; }
+  .health .err table .t { color: var(--mute); width: 60px; }
+  .health .err table .who { color: var(--accent); width: 110px; }
+
+  .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 50px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13px; }
+  .pager a { color: var(--accent); text-decoration: none; }
+  .pager .home { color: var(--mute); }
+</style>
+</head>
+<body>
+<div class="top">
+  <a href="04-sandbox-fix.html">← Chapter 4</a>
+  <div class="nav">
+    <span style="color:var(--mute)">Chapter 5 of 7</span>
+    <a href="06-schedule.html">Next: scheduled task →</a>
+  </div>
+</div>
+<main>
+  <h1>Hassan opens the admin dashboard</h1>
+  <p class="lede">
+    Bundled Next.js admin UI served by the same container as casey-app,
+    gated by Slack OAuth (the admin's Slack identity, verified against
+    <code>casey_users.role='admin'</code>). No separate password, no
+    separate IdP — Slack is the identity provider.
+  </p>
+  <p class="who"><strong>URL:</strong> https://casey.acme.com/admin · <strong>Signed in as:</strong> Hassan (Acme admin)</p>
+
+  <div class="app">
+    <div class="side">
+      <div class="brand">
+        <div class="logo">RS</div>
+        <div>
+          <div class="name">RapidusSquad</div>
+          <div class="sub">v1.0 · Acme</div>
+        </div>
+      </div>
+      <div class="label">Workspace</div>
+      <a class="nav-item active"><span class="ic">▦</span> Overview</a>
+      <a class="nav-item"><span class="ic">●</span> System health</a>
+      <a class="nav-item"><span class="ic">⊕</span> Connectors</a>
+      <a class="nav-item"><span class="ic">⌥</span> Repositories</a>
+      <a class="nav-item"><span class="ic">⏱</span> Schedules</a>
+
+      <div class="label">People</div>
+      <a class="nav-item"><span class="ic">♛</span> Users</a>
+      <a class="nav-item"><span class="ic">↗</span> Access requests <span class="badge">2</span></a>
+
+      <div class="label">Records</div>
+      <a class="nav-item"><span class="ic">≡</span> Audit log</a>
+      <a class="nav-item"><span class="ic">⚲</span> Backups</a>
+      <a class="nav-item"><span class="ic">⚙</span> Settings</a>
+
+      <div class="footer">
+        <div class="user">
+          <div class="av">H</div>
+          <div>
+            <div>Hassan Mehmood</div>
+            <div style="color:var(--mute);font-size:11px">admin · via Slack</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="crumb">Workspace › Overview</div>
+      <h2>Overview</h2>
+      <div class="h-meta">Last 7 days. Everything is healthy.</div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="label">Active users</div>
+          <div class="val">14</div>
+          <div class="delta">+3 this week</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Turns (7d)</div>
+          <div class="val">412</div>
+          <div class="delta">+18%</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">PRs opened (7d)</div>
+          <div class="val">37</div>
+          <div class="delta">31 merged · 6 open</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Anthropic spend (7d)</div>
+          <div class="val">$47.20</div>
+          <div class="delta" style="color:var(--mute)">your key · BYO</div>
+        </div>
+      </div>
+
+      <div class="panels">
+        <div class="pcard" style="grid-column: 1 / -1;">
+          <div class="ph">
+            <h4>User onboarding policy</h4>
+            <a href="#">Change policy →</a>
+          </div>
+          <div style="padding: 14px 18px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+            <div style="background: rgba(110,231,168,0.08); border: 1px solid rgba(110,231,168,0.35); border-radius: 8px; padding: 12px 14px;">
+              <div style="font-size: 11px; color: var(--ok); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Current policy</div>
+              <div style="font-size: 14.5px; font-weight: 600; margin-top: 6px;">Auto-approve Slack workspace members</div>
+              <div style="font-size: 12.5px; color: var(--mute); margin-top: 4px; line-height: 1.5;">Anyone in acme.slack.com is approved on first contact as <code style="background:var(--bg-2);padding:1px 5px;border-radius:3px;color:var(--accent);font-size:11.5px">dev</code>. Admin role is granted manually only.</div>
+            </div>
+            <div style="background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 12px 14px;">
+              <div style="font-size: 11px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Auto-approved (7d)</div>
+              <div style="font-size: 22px; font-weight: 700; margin-top: 6px;">12</div>
+              <div style="font-size: 12px; color: var(--mute); margin-top: 2px;">Hassan reviewed 0 of these.</div>
+            </div>
+            <div style="background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 12px 14px;">
+              <div style="font-size: 11px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">Manual via /register (7d)</div>
+              <div style="font-size: 22px; font-weight: 700; margin-top: 6px;">2</div>
+              <div style="font-size: 12px; color: var(--mute); margin-top: 2px;">Both contractors — outside workspace.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <div class="ph"><h4>Access requests (manual fallback)</h4><a href="#">View all (2) →</a></div>
+          <div class="pb">
+            <div class="req">
+              <div class="av purple">B</div>
+              <div>
+                <div class="name">Bob Lee</div>
+                <div class="info">bob@vendor.io · "QA contractor, in Slack but not @acme" · 11 min ago</div>
+              </div>
+              <div class="actions">
+                <button class="btn approve">✓ Approve</button>
+                <button class="btn deny">Deny</button>
+              </div>
+            </div>
+            <div class="req">
+              <div class="av orange">C</div>
+              <div>
+                <div class="name">Carlos Rivera</div>
+                <div class="info">carlos@consulting.io · "External consultant for payments" · 2h ago</div>
+              </div>
+              <div class="actions">
+                <button class="btn approve">✓ Approve</button>
+                <button class="btn deny">Deny</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <div class="ph"><h4>Connectors</h4><a href="#">Manage →</a></div>
+          <div class="pb">
+            <div class="conn">
+              <div class="ico sl">SL</div>
+              <div class="meta">
+                <div class="name">slack-mcp</div>
+                <div class="sub">acme.slack.com · last call 30s ago</div>
+              </div>
+              <div class="status ok">ok</div>
+            </div>
+            <div class="conn">
+              <div class="ico gh">GH</div>
+              <div class="meta">
+                <div class="name">github-mcp</div>
+                <div class="sub">acme org · 5 repos · last call 2m ago</div>
+              </div>
+              <div class="status ok">ok</div>
+            </div>
+            <div class="conn">
+              <div class="ico li">LI</div>
+              <div class="meta">
+                <div class="name">linear-mcp</div>
+                <div class="sub">acme workspace · last call 14m ago</div>
+              </div>
+              <div class="status ok">ok</div>
+            </div>
+            <div class="conn">
+              <div class="ico no">N</div>
+              <div class="meta">
+                <div class="name">notion-mcp</div>
+                <div class="sub">engineering-rfcs database · last error 7m ago</div>
+              </div>
+              <div class="status warn">degraded · 401</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <div class="ph"><h4>Recent audit</h4><a href="#">View log →</a></div>
+          <div class="audit">
+            <div class="row"><span class="t">14:19:02</span><span class="kind">pr.opened</span><span class="det">casey → acme/api#1306 (trusted-author)</span></div>
+            <div class="row"><span class="t">14:18:24</span><span class="kind">sandbox.run</span><span class="det">acme/api · pytest passed 50/50</span></div>
+            <div class="row"><span class="t">14:14:11</span><span class="kind">query</span><span class="det">alice · 4 tool calls (linear, github×2, notion)</span></div>
+            <div class="row"><span class="t">14:04:30</span><span class="kind">approval</span><span class="det">hassan → alice approved as dev</span></div>
+            <div class="row"><span class="t">14:03:22</span><span class="kind">register</span><span class="det">alice@acme.com requested access</span></div>
+            <div class="row"><span class="t">14:02:55</span><span class="kind warn">denied</span><span class="det">alice attempted DM before /register</span></div>
+            <div class="row"><span class="t">09:00:00</span><span class="kind">cron</span><span class="det">payments-digest fired in #standup</span></div>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <div class="ph"><h4>Schedules</h4><a href="#">New schedule →</a></div>
+          <div class="sched">
+            <div class="row">
+              <div>
+                <div class="name">Payments digest</div>
+                <div class="sub">#standup · last run today 09:00 · next tomorrow 09:00</div>
+              </div>
+              <div class="when">Mon–Fri 09:00 ET</div>
+            </div>
+            <div class="row">
+              <div>
+                <div class="name">Weekly KPI summary</div>
+                <div class="sub">#leadership · last run Fri · next Fri 17:00</div>
+              </div>
+              <div class="when">Fri 17:00 ET</div>
+            </div>
+            <div class="row">
+              <div>
+                <div class="name">Stale PR reminder</div>
+                <div class="sub">#engineering · checks PRs &gt; 3 days idle</div>
+              </div>
+              <div class="when">Daily 10:30 ET</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HEALTH -->
+      <div class="health">
+        <div class="ph">
+          <h4>System health</h4>
+          <span class="live">live · refreshing 10s</span>
+          <button class="killswitch">⏻ Pause Casey (killswitch)</button>
+        </div>
+
+        <div class="grid">
+          <div class="col">
+            <h5>Core dependencies</h5>
+            <div class="item"><div class="lbl"><span class="dot ok"></span> Slack connection</div><div class="v ok">socket mode</div></div>
+            <div class="item"><div class="lbl"><span class="dot ok"></span> Postgres</div><div class="v ok">connected</div></div>
+            <div class="item"><div class="lbl"><span class="dot ok"></span> Anthropic API</div><div class="v ok">last 30s</div></div>
+            <div class="item"><div class="lbl"><span class="dot ok"></span> Sandbox runtime</div><div class="v ok">docker engine</div></div>
+            <div class="item"><div class="lbl"><span class="dot ok"></span> Disk free</div><div class="v">62 / 80 GB</div></div>
+          </div>
+
+          <div class="col">
+            <h5>Connectors</h5>
+            <div class="item"><div class="lbl"><span class="dot ok"></span> github-mcp</div><div class="v">2m ago</div></div>
+            <div class="item"><div class="lbl"><span class="dot ok"></span> linear-mcp</div><div class="v">14m ago</div></div>
+            <div class="item"><div class="lbl"><span class="dot warn"></span> notion-mcp</div><div class="v warn">401, 7m ago</div></div>
+            <div class="item"><div class="lbl"><span class="dot ok"></span> slack-mcp</div><div class="v">30s ago</div></div>
+          </div>
+
+          <div class="col">
+            <h5>Sandbox pool</h5>
+            <div class="item"><div class="lbl"><span class="dot ok"></span> acme/web</div><div class="v">warm · 3m ago</div></div>
+            <div class="item"><div class="lbl"><span class="dot ok"></span> acme/api</div><div class="v">warm · 1h ago</div></div>
+            <div class="item"><div class="lbl"><span class="dot cold"></span> acme/billing</div><div class="v">cold · 6d ago</div></div>
+            <div class="item"><div class="lbl"><span class="dot cold"></span> acme/auth-service</div><div class="v">cold · 12d ago</div></div>
+          </div>
+        </div>
+
+        <div class="lastturn">
+          <div class="lbl">Last successful turn</div>
+          <div>4 min ago · #engineering · <code>alice@acme.com</code> — "Fix the flaky webhook test" → <code>acme/api#1306</code> opened ✓</div>
+          <div class="when" style="margin-top:4px">38s wall clock · 14 sandbox calls · sandbox isolated, no credentials, egress blocked</div>
+        </div>
+
+        <div class="err">
+          <div class="lbl">Recent errors (last 24h: 3)</div>
+          <table>
+            <tr><td class="t">14:02</td><td class="who">notion-mcp</td><td>401 unauthorized — token expired</td></tr>
+            <tr><td class="t">09:31</td><td class="who">sandbox</td><td>pytest timeout on acme/web (recovered, retry passed)</td></tr>
+            <tr><td class="t">09:30</td><td class="who">sandbox</td><td>pytest timeout on acme/web (first attempt)</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pager">
+    <a href="04-sandbox-fix.html">← Chapter 4: sandbox fix</a>
+    <a class="home" href="index.html">Tour home</a>
+    <a href="06-schedule.html">Next: scheduled task →</a>
+  </div>
+</main>
+</body>
+</html>

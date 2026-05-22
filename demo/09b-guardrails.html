@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter 9 (canonical) — Guardrails in action</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #fbfbfd;
+    --ink: #0e1116; --ink-2: #1d242f; --mute: #6e7787;
+    --line: #ecedf0; --line-2: #dde0e5;
+    --accent: #4f46e5; --accent-2: #8b5cf6; --accent-soft: #eef2ff;
+    --ok: #059669; --warn: #d97706; --bad: #dc2626;
+    --slack-ink: #1d1c1d; --slack-mute: #616061; --slack-blue: #1264a3;
+    --slack-line: #e3e3e5; --checklist-bg: #f8f8f8;
+    --slack-green: #2eb67d; --slack-warn: #ecb22e; --slack-red: #e01e5a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+    background: radial-gradient(1100px 600px at 85% -10%, rgba(139,92,246,0.10), transparent 60%), var(--bg);
+    min-height: 100vh;
+  }
+  .topbar { max-width: 1200px; margin: 0 auto; padding: 22px 32px 0; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--mute); }
+  .topbar a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .topbar .nav a { margin-left: 14px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 30px 32px 96px; }
+  h1 { font-size: 36px; margin: 12px 0 8px; letter-spacing: -0.02em; font-weight: 700; }
+  .lede { color: var(--ink-2); max-width: 880px; margin: 0 0 8px; font-size: 16px; line-height: 1.6; }
+  .who { color: var(--mute); font-size: 13.5px; margin-bottom: 32px; display: flex; gap: 18px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line); }
+  .who b { color: var(--ink-2); font-weight: 600; }
+
+  .scene { margin-bottom: 48px; }
+  .scene-label {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700;
+    background: var(--accent-soft);
+    padding: 6px 12px; border-radius: 999px; margin-bottom: 10px;
+  }
+  .scene h2 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.015em; font-weight: 700; }
+  .scene .scene-lede { color: var(--mute); margin: 0 0 16px; font-size: 14.5px; line-height: 1.6; max-width: 820px; }
+
+  .grid2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: stretch; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+
+  /* SLACK panel */
+  .slack {
+    background: white; border: 1px solid var(--slack-line); border-radius: 14px;
+    overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 14px 36px -12px rgba(15,23,42,0.10);
+  }
+  .slack-head {
+    padding: 12px 18px; border-bottom: 1px solid var(--slack-line);
+    display: flex; align-items: center; gap: 10px; background: white;
+  }
+  .slack-head .av { width: 22px; height: 22px; border-radius: 5px; background: linear-gradient(135deg,#4a8fdc,#2b6cba); color: white; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+  .slack-head .name { font-weight: 800; color: var(--slack-ink); font-size: 14.5px; }
+  .slack-head .app-tag { background: #ddd; color: #555; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+  .slack-head .meta { color: var(--slack-mute); font-size: 12.5px; }
+  .slack-head .channel { color: var(--slack-mute); font-size: 13px; font-weight: 600; }
+  .thread { flex: 1; padding: 16px 20px; background: white; }
+
+  .msg { display: grid; grid-template-columns: 38px 1fr; gap: 12px; padding: 6px 0; }
+  .avatar { width: 34px; height: 34px; border-radius: 6px; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+  .avatar.alice { background: linear-gradient(135deg, #2eb67d, #1a8c5e); }
+  .avatar.bob { background: linear-gradient(135deg, #ecb22e, #c79520); }
+  .avatar.bot { background: linear-gradient(135deg, #4a8fdc, #2b6cba); }
+  .body { min-width: 0; }
+  .meta-row { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
+  .meta-row .uname { font-weight: 800; color: var(--slack-ink); font-size: 14.5px; }
+  .meta-row .app { background: #ddd; color: #555; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+  .meta-row .time { color: var(--slack-mute); font-size: 12px; }
+  .text { color: var(--slack-ink); font-size: 14px; line-height: 1.55; margin-top: 2px; }
+  .text code { background: #f4ede4; padding: 1px 5px; border-radius: 3px; color: #7c2d12; font-family: ui-monospace, monospace; font-size: 12px; }
+
+  /* Status block */
+  .status-block {
+    margin-top: 8px; background: var(--checklist-bg);
+    border: 1px solid var(--slack-line); border-radius: 10px; overflow: hidden;
+  }
+  .status-header {
+    padding: 11px 13px; display: flex; align-items: center; gap: 10px;
+    background: var(--checklist-bg); border-bottom: 1px solid var(--slack-line);
+  }
+  .status-icon { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 11px; font-weight: 700; position: relative; }
+  .status-icon.working { background: var(--slack-blue); }
+  .status-icon.working::after {
+    content: ""; width: 9px; height: 9px; border-radius: 50%;
+    border: 2px solid white; border-top-color: transparent;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+  .status-icon.warn { background: var(--slack-warn); }
+  .status-icon.warn::after { content: "!"; color: white; font-weight: 800; }
+  .status-icon.bad { background: var(--slack-red); }
+  .status-icon.bad::after { content: "✕"; }
+  .status-icon.degraded { background: var(--warn); }
+  .status-icon.degraded::after { content: "↘"; }
+  .status-label { font-weight: 700; font-size: 13.5px; color: var(--slack-ink); }
+  .status-meta { color: var(--slack-mute); font-size: 12px; }
+  .status-meta .branch { font-family: ui-monospace, monospace; color: var(--slack-blue); background: #eaf3fa; padding: 1px 7px; border-radius: 4px; font-size: 11px; }
+  .status-chevron { margin-left: auto; color: var(--slack-mute); font-size: 11px; }
+  .status-body { padding: 12px 14px; background: white; }
+
+  .todo-list { list-style: none; padding: 0; margin: 0; }
+  .todo-item { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; font-size: 13px; }
+  .todo-mark { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; font-size: 10px; font-weight: 700; }
+  .todo-mark.in_progress { background: var(--slack-blue); color: white; }
+  .todo-mark.in_progress::after { content: "◐"; }
+  .todo-mark.completed { background: var(--slack-green); color: white; }
+  .todo-mark.completed::after { content: "✓"; }
+  .todo-mark.pending { border: 1.5px solid #c1c1c1; background: transparent; }
+  .todo-text { color: var(--slack-ink); line-height: 1.5; }
+  .todo-item.completed .todo-text { color: var(--slack-mute); }
+  .todo-item.pending .todo-text { color: var(--slack-mute); }
+
+  /* Notice card (warn / bad / info variants) */
+  .notice-card {
+    margin-top: 10px; border: 1px solid var(--slack-line);
+    background: white; border-radius: 8px; padding: 14px 16px;
+    border-left: 4px solid var(--slack-warn);
+  }
+  .notice-card.bad { border-left-color: var(--slack-red); }
+  .notice-card.info { border-left-color: var(--slack-blue); }
+  .notice-card.ok { border-left-color: var(--slack-green); }
+  .notice-card .label { font-size: 11px; color: var(--slack-mute); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .notice-card .title { font-weight: 800; font-size: 14.5px; color: var(--slack-ink); margin-bottom: 4px; }
+  .notice-card .desc { color: var(--slack-ink); font-size: 13.5px; line-height: 1.6; }
+  .notice-card .desc code { background: #f4ede4; padding: 1px 5px; border-radius: 3px; color: #7c2d12; font-family: ui-monospace, monospace; font-size: 12px; }
+  .notice-card .footnote { margin-top: 8px; color: var(--slack-mute); font-size: 12px; line-height: 1.5; }
+
+  .action-bar { margin-top: 10px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .action-btn { background: white; border: 1px solid #c1c1c1; padding: 5px 12px; border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--slack-ink); display: inline-flex; align-items: center; gap: 5px; }
+  .action-btn:hover { background: #f0f0f0; }
+  .action-btn.primary { background: var(--slack-blue); color: white; border-color: var(--slack-blue); }
+
+  /* Explainer side */
+  .explainer { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+  .explainer h4 { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); margin: 0 0 10px; font-weight: 700; }
+  .explainer h3 { font-size: 17px; margin: 0 0 10px; letter-spacing: -0.01em; font-weight: 700; }
+  .explainer p { margin: 0 0 10px; color: var(--ink-2); font-size: 13.5px; line-height: 1.6; }
+  .explainer p:last-child { margin-bottom: 0; }
+  .explainer ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 13.5px; line-height: 1.7; }
+  .explainer li { margin-bottom: 4px; }
+  .explainer code { background: var(--accent-soft); padding: 1px 6px; border-radius: 4px; color: var(--accent); font-family: ui-monospace, monospace; font-size: 12px; }
+  .explainer .src { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; color: var(--mute); }
+  .explainer .src a { color: var(--accent); text-decoration: none; font-weight: 600; }
+
+  .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 50px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13px; }
+  .pager a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .pager .home { color: var(--mute); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="07b-incident.html">← Chapter 7 (canonical)</a>
+  <div class="nav">
+    <span style="color:var(--mute)">Chapter 9 · canonical · guardrails</span>
+    <a href="08-casey-ux.html">Next: UX spec →</a>
+  </div>
+</div>
+<main>
+  <h1>Guardrails in action — the four moments Casey says "no" (or "wait")</h1>
+  <p class="lede">
+    The happy-path chapters (3, 4, 6) show Casey when everything works. This
+    one shows the four user-visible moments where v2.1 guardrails kick in:
+    <strong>first-touch sandbox setup</strong>, <strong>per-user PR quota</strong>,
+    <strong>channel-scoped trust</strong>, and <strong>degraded-mode fallback</strong>.
+    Each is the canonical Casey UX handling a non-happy state gracefully — so
+    customers understand what's happening, not just that "Casey is being weird."
+  </p>
+  <p class="who">
+    <span><b>Why this chapter exists:</b> sales calls always end up here ("what happens when X?")</span>
+    <span><b>Spec source:</b> plan §6 + §9</span>
+  </p>
+
+  <!-- ============================================================ -->
+  <!-- BEAT 1 — First-touch sandbox setup -->
+  <!-- ============================================================ -->
+  <section class="scene">
+    <span class="scene-label">Beat 1 · cold start</span>
+    <h2>First message to a new repo — sandbox needs to be set up</h2>
+    <p class="scene-lede">
+      There's no warm pool. The first time anyone asks Casey to work on
+      <code>acme/billing</code>, the sandbox container does a one-time clone +
+      dependency install. Casey tells the user up front, and persists the
+      <code>/workdir</code> volume so the next request is fast.
+    </p>
+
+    <div class="grid2">
+      <div class="slack">
+        <div class="slack-head">
+          <div class="av">#</div>
+          <div class="channel">#engineering-billing</div>
+          <div class="meta">· write-enabled</div>
+        </div>
+        <div class="thread">
+          <div class="msg">
+            <div class="avatar alice">A</div>
+            <div class="body">
+              <div class="meta-row"><span class="uname">Alice Park</span><span class="time">09:32</span></div>
+              <div class="text">@casey can you take a first pass at LIN-1102? the refund batch is failing under load.</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="avatar bot">C</div>
+            <div class="body">
+              <div class="meta-row"><span class="uname">Casey</span><span class="app">APP</span><span class="time">09:32</span></div>
+
+              <div class="status-block">
+                <div class="status-header">
+                  <div class="status-icon working"></div>
+                  <span class="status-label">Setting up sandbox for acme/billing…</span>
+                  <span class="status-meta">· first time on this repo · ~45s</span>
+                  <span class="status-chevron">▾</span>
+                </div>
+                <div class="status-body">
+                  <ul class="todo-list">
+                    <li class="todo-item completed"><div class="todo-mark completed"></div><div class="todo-text">Pull <code>rapidussquad/sandbox:node-20</code> (cached locally)</div></li>
+                    <li class="todo-item in_progress"><div class="todo-mark in_progress"></div><div class="todo-text">Clone <code>acme/billing</code> into <code>/workdir</code></div></li>
+                    <li class="todo-item pending"><div class="todo-mark pending"></div><div class="todo-text">Run <code>npm ci</code> + <code>playwright install</code></div></li>
+                    <li class="todo-item pending"><div class="todo-mark pending"></div><div class="todo-text">Read LIN-1102 and begin work</div></li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="notice-card info" style="margin-top:10px">
+                <div class="label">One-time setup</div>
+                <div class="desc">
+                  This is the first request for <code>acme/billing</code>, so I'm setting
+                  up its sandbox workspace. After this, future requests on this repo
+                  reuse the persistent volume (~5–10s spin-up). I'll start on your
+                  ticket as soon as setup finishes.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="explainer">
+        <h4>What's happening</h4>
+        <h3>Lazy container + persistent volume</h3>
+        <p>
+          v2.1 dropped the per-repo warm pool. Instead, the sandbox is
+          <em>lazy-started</em> — the first request to any repo pays a one-time
+          cost (clone + dependency install). The resulting <code>/workdir</code>
+          lives on a docker volume keyed by repo.
+        </p>
+        <p>Subsequent requests:</p>
+        <ul>
+          <li>Fresh container, mounts the existing volume</li>
+          <li>Skip the slow part (deps already installed)</li>
+          <li>5–10 seconds to ready, not 45</li>
+        </ul>
+        <p>TTL eviction kicks in after 14 days untouched — volume is deleted and disk reclaimed.</p>
+        <div class="src">Spec: <a href="../docs/casey-self-hosted-product-plan-v2.html">v2.1 plan §9 — sandbox lifecycle</a></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- BEAT 2 — Per-user PR quota -->
+  <!-- ============================================================ -->
+  <section class="scene">
+    <span class="scene-label">Beat 2 · rate limit</span>
+    <h2>Alice hits the daily PR quota on a single repo</h2>
+    <p class="scene-lede">
+      Default cap is 5 PRs per user per repo per day. The 6th request gets
+      politely declined with a clear reset time. This is the load-bearing
+      control that keeps "auto-approve workspace members" safe — a
+      compromised dev account can't turn into a PR-spam primitive.
+    </p>
+
+    <div class="grid2">
+      <div class="slack">
+        <div class="slack-head">
+          <div class="av">#</div>
+          <div class="channel">#engineering-billing</div>
+          <div class="meta">· write-enabled</div>
+        </div>
+        <div class="thread">
+          <div class="msg">
+            <div class="avatar alice">A</div>
+            <div class="body">
+              <div class="meta-row"><span class="uname">Alice Park</span><span class="time">16:47</span></div>
+              <div class="text">@casey open a PR fixing the typo in REFUND_REASONS — line 47 of <code>refund_codes.py</code></div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="avatar bot">C</div>
+            <div class="body">
+              <div class="meta-row"><span class="uname">Casey</span><span class="app">APP</span><span class="time">16:47</span></div>
+
+              <div class="status-block">
+                <div class="status-header">
+                  <div class="status-icon warn"></div>
+                  <span class="status-label">Daily PR limit reached</span>
+                  <span class="status-meta">· 5/5 on <span class="branch">acme/billing</span> today</span>
+                  <span class="status-chevron">▾</span>
+                </div>
+              </div>
+
+              <div class="notice-card">
+                <div class="label">Rate limit</div>
+                <div class="title">You've used 5 of 5 PRs on acme/billing today</div>
+                <div class="desc">
+                  Default cap protects against runaway loops and compromised accounts.
+                  Quota resets at <code>00:00 UTC</code> (~7h 13m from now).
+                </div>
+                <div class="footnote">
+                  Need to keep going? An admin can raise your cap for this repo in
+                  the admin UI → Repositories → acme/billing → PR quota. Reads,
+                  comments, and questions are <em>not</em> rate-limited — only
+                  PR opens.
+                </div>
+              </div>
+
+              <div class="action-bar">
+                <button class="action-btn">📋 View today's PRs</button>
+                <button class="action-btn">DM admin to raise cap</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="explainer">
+        <h4>What's happening</h4>
+        <h3>Per-user quota, not per-channel rate limit</h3>
+        <p>
+          The cap is per <em>(user, repo, day)</em>. Alice can still open PRs on
+          other repos. Bob can still open PRs on <code>acme/billing</code>. Only
+          Alice's count on <code>acme/billing</code> is exhausted.
+        </p>
+        <p>This narrows the attack surface in a specific way:</p>
+        <ul>
+          <li>Compromised Alice account → at most 5 PRs/day/repo before lockout</li>
+          <li>PR-spam attack ("open 500 garbage PRs") becomes impossible</li>
+          <li>5 PRs is enough that it's visible to reviewers, not overwhelming</li>
+        </ul>
+        <p>
+          The per-repo PR storm cap (≥3 open Casey PRs pauses the repo) is the
+          second line — it catches scenarios this misses.
+        </p>
+        <div class="src">Spec: <a href="../docs/casey-self-hosted-product-plan-v2.html">v2.1 plan §6 — dev role surface</a></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- BEAT 3 — Channel-scoped trust -->
+  <!-- ============================================================ -->
+  <section class="scene">
+    <span class="scene-label">Beat 3 · channel scope</span>
+    <h2>Bob asks Casey to open a PR from #random</h2>
+    <p class="scene-lede">
+      Casey only honors write requests in admin-marked write-enabled channels.
+      In any other channel, write requests get refused — reads and questions
+      still work. This means compromising a Slack account in
+      <code>#random</code> or <code>#memes</code> is not a PR-creation
+      primitive.
+    </p>
+
+    <div class="grid2">
+      <div class="slack">
+        <div class="slack-head">
+          <div class="av">#</div>
+          <div class="channel">#random</div>
+          <div class="meta">· not write-enabled</div>
+        </div>
+        <div class="thread">
+          <div class="msg">
+            <div class="avatar bob">B</div>
+            <div class="body">
+              <div class="meta-row"><span class="uname">Bob Lee</span><span class="time">11:08</span></div>
+              <div class="text">@casey can you open a PR on acme/billing bumping the stripe sdk to 14.2.0?</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="avatar bot">C</div>
+            <div class="body">
+              <div class="meta-row"><span class="uname">Casey</span><span class="app">APP</span><span class="time">11:08</span></div>
+
+              <div class="status-block">
+                <div class="status-header">
+                  <div class="status-icon bad"></div>
+                  <span class="status-label">Can't open PRs from this channel</span>
+                  <span class="status-meta">· #random isn't write-enabled</span>
+                  <span class="status-chevron">▾</span>
+                </div>
+              </div>
+
+              <div class="notice-card bad">
+                <div class="label">Channel scope</div>
+                <div class="title">I only open PRs in write-enabled channels</div>
+                <div class="desc">
+                  <code>#random</code> is read-only for me — I can answer questions,
+                  look up tickets, and summarize PRs here, but I won't open or
+                  push code.
+                </div>
+                <div class="footnote">
+                  Move the request to a write-enabled channel
+                  (<code>#engineering-billing</code>, <code>#engineering-api</code>),
+                  or ask an admin to enable writes in <code>#random</code> in the
+                  admin UI → Channels.
+                </div>
+              </div>
+
+              <div class="action-bar">
+                <button class="action-btn primary">↗ Open #engineering-billing</button>
+                <button class="action-btn">📋 List write-enabled channels</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bob's follow-up: he asks Casey a read-only question instead -->
+          <div class="msg" style="margin-top:8px">
+            <div class="avatar bob">B</div>
+            <div class="body">
+              <div class="meta-row"><span class="uname">Bob Lee</span><span class="time">11:09</span></div>
+              <div class="text">fair. what's the current stripe sdk version on acme/billing?</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="avatar bot">C</div>
+            <div class="body">
+              <div class="meta-row"><span class="uname">Casey</span><span class="app">APP</span><span class="time">11:09</span></div>
+              <div class="text">
+                <code>stripe@13.11.0</code> in <code>acme/billing/package.json</code> on
+                <code>main</code>. Last bumped 4 weeks ago in PR #1198 by @hassan.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="explainer">
+        <h4>What's happening</h4>
+        <h3>Reads anywhere, writes only in write-enabled channels</h3>
+        <p>
+          Channel-scoped trust separates the <em>dev</em> attack surface from
+          the <em>admin</em> trust. Without it, the default "auto-approve Slack
+          workspace members" policy would mean any workspace member could
+          trigger PRs from any channel. With it, the attack chain is:
+        </p>
+        <ul>
+          <li>Get a Slack account (phishing, session hijack)</li>
+          <li>Account has to be a member of a write-enabled channel</li>
+          <li>Then still subject to the 5/day quota (Beat 2)</li>
+        </ul>
+        <p>
+          Reads are <em>not</em> scoped — Bob can still ask questions and look
+          things up from anywhere. The constraint targets the destructive
+          primitive (PR creation), not Casey's usefulness.
+        </p>
+        <div class="src">Spec: <a href="../docs/casey-self-hosted-product-plan-v2.html">v2.1 plan §6 trust boundary</a></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- BEAT 4 — Degraded-mode fallback -->
+  <!-- ============================================================ -->
+  <section class="scene">
+    <span class="scene-label">Beat 4 · sandbox down</span>
+    <h2>Sandbox unavailable — Casey falls back to CI</h2>
+    <p class="scene-lede">
+      Strategy B (local sandbox) is the default. When it fails — image pull
+      failure, disk pressure, sandbox crash — Casey transparently falls back
+      to Strategy A (CI-driven iteration) and tells the user. A circuit
+      breaker prevents wasting time retrying a doomed sandbox.
+    </p>
+
+    <div class="grid2">
+      <div class="slack">
+        <div class="slack-head">
+          <div class="av">#</div>
+          <div class="channel">#engineering-api</div>
+          <div class="meta">· write-enabled</div>
+        </div>
+        <div class="thread">
+          <div class="msg">
+            <div class="avatar alice">A</div>
+            <div class="body">
+              <div class="meta-row"><span class="uname">Alice Park</span><span class="time">14:02</span></div>
+              <div class="text">@casey LIN-1108 — the auth middleware drops headers on long requests. take a pass?</div>
+            </div>
+          </div>
+
+          <div class="msg">
+            <div class="avatar bot">C</div>
+            <div class="body">
+              <div class="meta-row"><span class="uname">Casey</span><span class="app">APP</span><span class="time">14:02</span></div>
+
+              <div class="status-block">
+                <div class="status-header">
+                  <div class="status-icon degraded"></div>
+                  <span class="status-label">Sandbox unavailable — iterating via CI</span>
+                  <span class="status-meta">· degraded mode · expect ~5 min/iter</span>
+                  <span class="status-chevron">▾</span>
+                </div>
+                <div class="status-body">
+                  <ul class="todo-list">
+                    <li class="todo-item completed"><div class="todo-mark completed"></div><div class="todo-text">Attempted sandbox start for <code>acme/api</code> — failed (3 retries)</div></li>
+                    <li class="todo-item completed"><div class="todo-mark completed"></div><div class="todo-text">Circuit breaker: sandbox sticky-off for this repo for 1h</div></li>
+                    <li class="todo-item completed"><div class="todo-mark completed"></div><div class="todo-text">Read LIN-1108 and the failing test</div></li>
+                    <li class="todo-item in_progress"><div class="todo-mark in_progress"></div><div class="todo-text">Pushed <code>casey/lin-1108-header-fix</code> · waiting on CI…</div></li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="notice-card">
+                <div class="label">Degraded mode</div>
+                <div class="title">Sandbox is unhealthy — falling back to GitHub Actions</div>
+                <div class="desc">
+                  Same work gets done, but each iteration is a push + CI run
+                  instead of a local test loop. Expect 3–10 min per cycle
+                  instead of seconds. The PR will still open when the patch is
+                  green.
+                </div>
+                <div class="footnote">
+                  Admin can clear the circuit and retry the sandbox from the
+                  health page → Sandbox status → acme/api.
+                </div>
+              </div>
+
+              <div class="action-bar">
+                <button class="action-btn">↗ View health page</button>
+                <button class="action-btn">📋 View sandbox logs</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="explainer">
+        <h4>What's happening</h4>
+        <h3>A as invisible degraded-mode</h3>
+        <p>
+          Strategy A (CI-driven push-and-poll) was the v1 foundation-slice
+          compute path. From week 4+ it persists only as fallback — customers
+          don't pick A, they get it automatically when B is unhealthy.
+        </p>
+        <p>The circuit breaker:</p>
+        <ul>
+          <li>3 sandbox failures in a row for a repo → sticky A for 1 hour</li>
+          <li>Prevents wasting 30s on every fallback attempting a doomed start</li>
+          <li>Admin can clear manually from the health page</li>
+        </ul>
+        <p>
+          The Slack message and health-page surfacing matter — silent fallback
+          would look like "Casey is slow today" and customers wouldn't
+          investigate. Surfacing it turns a degraded incident into a known,
+          tracked state.
+        </p>
+        <div class="src">Spec: <a href="../docs/casey-self-hosted-product-plan-v2.html">v2.1 plan §9 Strategy A</a></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="pager">
+    <a href="07b-incident.html">← Chapter 7 (canonical)</a>
+    <a class="home" href="index2.html">All chapters (canonical)</a>
+    <a href="08-casey-ux.html">Next: UX spec →</a>
+  </div>
+</main>
+</body>
+</html>

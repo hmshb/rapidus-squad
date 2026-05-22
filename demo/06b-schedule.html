@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter 6 (canonical) — Scheduled digest</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #fbfbfd;
+    --ink: #0e1116; --ink-2: #1d242f; --mute: #6e7787;
+    --line: #ecedf0; --line-2: #dde0e5;
+    --accent: #4f46e5; --accent-2: #8b5cf6; --accent-soft: #eef2ff;
+    --ok: #059669; --warn: #d97706; --bad: #dc2626;
+    --slack-ink: #1d1c1d; --slack-mute: #616061; --slack-blue: #1264a3;
+    --slack-line: #e3e3e5; --checklist-bg: #f8f8f8;
+    --slack-green: #2eb67d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+    background: radial-gradient(900px 500px at 85% -10%, rgba(79,70,229,0.06), transparent 60%), var(--bg);
+    min-height: 100vh;
+  }
+  .topbar { max-width: 1280px; margin: 0 auto; padding: 22px 32px 0; display: flex; justify-content: space-between; font-size: 13px; color: var(--mute); }
+  .topbar a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .topbar .nav a { margin-left: 14px; }
+  main { max-width: 1280px; margin: 0 auto; padding: 30px 32px 96px; }
+  h1 { font-size: 34px; margin: 12px 0 8px; letter-spacing: -0.02em; font-weight: 700; }
+  .lede { color: var(--ink-2); max-width: 800px; margin: 0 0 8px; font-size: 16px; line-height: 1.6; }
+  .who { color: var(--mute); font-size: 13.5px; margin-bottom: 30px; display: flex; gap: 18px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line); }
+  .who b { color: var(--ink-2); font-weight: 600; }
+
+  .split { display: grid; grid-template-columns: 1.3fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
+
+  /* Slack */
+  .slack { background: white; border: 1px solid var(--slack-line); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 12px 36px -10px rgba(15,23,42,0.10); }
+  .slack-head { padding: 14px 20px; border-bottom: 1px solid var(--slack-line); background: white; display: flex; align-items: center; gap: 8px; }
+  .slack-head .hash { color: var(--slack-mute); font-weight: 700; font-size: 17px; }
+  .slack-head .channel { font-weight: 800; color: var(--slack-ink); font-size: 15px; }
+  .slack-head .meta { color: var(--slack-mute); font-size: 12.5px; }
+  .thread { padding: 18px 22px; background: white; }
+
+  .daydiv { display: flex; align-items: center; gap: 12px; padding: 14px 0 8px; }
+  .daydiv .line { flex: 1; height: 1px; background: var(--slack-line); }
+  .daydiv .lbl { background: white; border: 1px solid var(--slack-line); border-radius: 999px; padding: 4px 12px; font-size: 12px; color: var(--slack-mute); font-weight: 700; }
+
+  .msg { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 8px 0; }
+  .avatar { width: 36px; height: 36px; border-radius: 6px; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+  .avatar.bot { background: linear-gradient(135deg, #4a8fdc, #2b6cba); }
+  .body { min-width: 0; }
+  .meta-row { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; }
+  .meta-row .uname { font-weight: 800; color: var(--slack-ink); font-size: 15px; }
+  .meta-row .app { background: #ddd; color: #555; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+  .meta-row .time { color: var(--slack-mute); font-size: 12px; }
+
+  /* Status block (collapsed for scheduled run since the work was tiny) */
+  .status-block { margin-top: 8px; background: var(--checklist-bg); border: 1px solid var(--slack-line); border-radius: 8px; overflow: hidden; }
+  .status-header { padding: 9px 14px; display: flex; align-items: center; gap: 10px; background: var(--checklist-bg); }
+  .status-icon { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 10px; font-weight: 700; background: var(--slack-green); }
+  .status-icon::after { content: "✓"; }
+  .status-label { font-weight: 700; font-size: 13px; color: var(--slack-ink); }
+  .status-meta { color: var(--slack-mute); font-size: 12.5px; }
+  .status-meta .tag { background: var(--accent-soft); color: var(--accent); padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; font-family: ui-monospace, monospace; }
+  .status-chevron { margin-left: auto; color: var(--slack-mute); font-size: 11px; }
+
+  /* Digest summary card */
+  .digest-card {
+    margin-top: 8px; background: white; border: 1px solid var(--slack-line);
+    border-left: 4px solid var(--slack-blue); border-radius: 8px; padding: 16px 18px;
+  }
+  .digest-card .label { font-size: 11px; color: var(--slack-mute); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .digest-card .ttl { font-size: 16px; font-weight: 800; color: var(--slack-ink); margin-bottom: 12px; }
+  .digest-card h5 { margin: 14px 0 4px; font-size: 12px; color: var(--slack-mute); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+  .digest-card ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.7; color: var(--slack-ink); }
+  .digest-card .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; margin-right: 6px; }
+  .digest-card .pill.lin { background: #f5e9ff; color: #6b27a8; }
+  .digest-card .pill.gh { background: #e9ecef; color: #24292f; }
+  .digest-card .pill.done { background: #e6f7ee; color: #007a5a; }
+  .digest-card .pill.stale { background: #fdecec; color: #a31515; }
+  .digest-card .pill.new { background: #fff4d6; color: #8a5a00; }
+  .digest-card .flag { margin-top: 14px; padding: 10px 12px; background: #fff8e6; border-left: 3px solid var(--warn); border-radius: 6px; font-size: 13.5px; color: #6b4500; }
+  .digest-card .foot { margin-top: 14px; padding-top: 10px; border-top: 1px solid #f0f0f0; color: var(--slack-mute); font-size: 12px; }
+
+  .action-bar { margin-top: 10px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .action-btn { background: white; border: 1px solid #c1c1c1; padding: 5px 12px; border-radius: 4px; font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--slack-ink); display: inline-flex; align-items: center; gap: 5px; }
+  .action-btn:hover { background: #f0f0f0; }
+  .action-btn.primary { background: var(--slack-blue); color: white; border-color: var(--slack-blue); }
+  .action-btn.icon { padding: 5px 9px; }
+
+  .reactions { display: flex; gap: 5px; margin-top: 8px; }
+  .reaction { display: inline-flex; align-items: center; gap: 4px; background: #f0f6fc; border: 1px solid #c8d8ec; padding: 2px 8px; border-radius: 12px; font-size: 12px; color: #1264a3; }
+
+  .yesterday {
+    margin: 12px 0 0; padding: 10px 14px; background: var(--checklist-bg);
+    border-radius: 8px; border: 1px dashed var(--slack-line);
+    color: var(--slack-mute); font-size: 13px;
+  }
+  .yesterday a { color: var(--slack-blue); text-decoration: none; font-weight: 600; }
+
+  /* Right panel */
+  .panel { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 22px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+  .panel h3 { font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); margin: 0 0 14px; font-weight: 700; }
+  .panel h3:not(:first-child) { margin-top: 24px; }
+  .field-row { display: grid; grid-template-columns: 110px 1fr; gap: 14px; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .field-row:last-child { border-bottom: none; }
+  .field-row .k { color: var(--mute); }
+  .field-row .v { color: var(--ink); }
+  .field-row .v code { background: var(--bg); padding: 1px 6px; border-radius: 4px; color: var(--accent); font-family: ui-monospace, monospace; font-size: 12px; }
+
+  .prompt-card { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-family: ui-monospace, monospace; font-size: 12.5px; color: var(--ink-2); line-height: 1.7; }
+
+  .runs .row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 12.5px; border-bottom: 1px dashed var(--line); font-family: ui-monospace, monospace; }
+  .runs .row:last-child { border-bottom: none; }
+  .runs .row .t { color: var(--mute); }
+  .runs .row .s.ok { color: var(--ok); }
+  .runs .row .s.warn { color: var(--warn); }
+
+  .note { background: linear-gradient(135deg, var(--accent-soft) 0%, white 100%); border: 1px solid rgba(79,70,229,0.18); border-radius: 10px; padding: 12px 14px; color: var(--ink-2); font-size: 13px; margin-top: 18px; line-height: 1.6; }
+  .note strong { color: var(--accent); }
+
+  .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 50px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13px; }
+  .pager a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .pager .home { color: var(--mute); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="04b-sandbox-fix.html">← Chapter 4 (canonical)</a>
+  <div class="nav">
+    <span style="color:var(--mute)">Chapter 6 · canonical</span>
+    <a href="07b-incident.html">Next: incident →</a>
+  </div>
+</div>
+<main>
+  <h1>Daily standup digest fires at 09:00</h1>
+  <p class="lede">
+    Same scheduled task as the original Chapter 6, rendered in the canonical
+    UX. The digest arrives as <strong>one Casey message</strong> with a
+    completed status block (you can re-open the checklist to see what Casey
+    actually read) and a labeled <em>Payments digest</em> summary card with
+    schedule actions.
+  </p>
+  <p class="who">
+    <span><b>Trigger:</b> <code style="background:var(--accent-soft);padding:1px 6px;border-radius:4px;color:var(--accent);font-weight:600;font-family:ui-monospace,monospace">0 9 * * 1-5</code></span>
+    <span><b>Channel:</b> #standup</span>
+    <span><b>Author:</b> Casey (system turn)</span>
+  </p>
+
+  <div class="split">
+    <div class="slack">
+      <div class="slack-head">
+        <span class="hash">#</span>
+        <span class="channel">standup</span>
+        <span class="meta">· 16 members · payments team</span>
+      </div>
+      <div class="thread">
+        <div class="daydiv"><div class="line"></div><div class="lbl">Tuesday, May 21</div><div class="line"></div></div>
+
+        <div class="msg">
+          <div class="avatar bot">C</div>
+          <div class="body">
+            <div class="meta-row"><span class="uname">Casey</span><span class="app">APP</span><span class="time">09:00</span></div>
+
+            <div class="status-block">
+              <div class="status-header">
+                <div class="status-icon"></div>
+                <span class="status-label">Completed</span>
+                <span class="status-meta">· 1.8s · 18 tools · <span class="tag">cron:payments-digest</span></span>
+                <span class="status-chevron">▾</span>
+              </div>
+            </div>
+
+            <div class="digest-card">
+              <div class="label">Payments digest</div>
+              <div class="ttl">Tue May 21</div>
+
+              <h5>Moved yesterday</h5>
+              <ul>
+                <li><span class="pill done">DONE</span><span class="pill lin">LIN-905</span> Backfill historical disputes — by Alice</li>
+                <li><span class="pill lin">LIN-892</span> Webhook receiver queue → <strong>In Review</strong> (Bob)</li>
+                <li><span class="pill gh">#1284</span> Webhook receiver PR → <strong>Mergeable</strong></li>
+              </ul>
+
+              <h5>Stale (&gt;3 days no update)</h5>
+              <ul>
+                <li><span class="pill stale">STALE 5d</span><span class="pill lin">LIN-870</span> Refund batch processing — Carol</li>
+                <li><span class="pill stale">STALE 4d</span><span class="pill gh">#1247</span> Dispute webhook idempotency — Carol · conflicts with main</li>
+              </ul>
+
+              <h5>New since yesterday</h5>
+              <ul>
+                <li><span class="pill new">P1</span><span class="pill lin">LIN-912</span> 3DS challenge UI regression — unassigned</li>
+                <li><span class="pill new">P2</span><span class="pill lin">LIN-913</span> Stripe API deprecation warning in logs</li>
+              </ul>
+
+              <div class="flag">
+                <strong>One thing I'd flag:</strong> LIN-870 and #1247 are both Carol's, both stale. Worth checking in — Carol's PR conflicts with main, may need a rebase before anyone can review.
+              </div>
+
+              <div class="foot">Sources: Linear (12 issues) · GitHub (6 PRs) · Notion (0) · 1.8s wall clock</div>
+            </div>
+
+            <div class="action-bar">
+              <button class="action-btn">⏭ Skip tomorrow</button>
+              <button class="action-btn">⚙ Edit schedule</button>
+              <button class="action-btn">📋 View logs</button>
+              <button class="action-btn icon">⋯</button>
+            </div>
+
+            <div class="reactions">
+              <div class="reaction">👍 4</div>
+              <div class="reaction">🙏 1</div>
+              <div class="reaction">👀 2</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="daydiv"><div class="line"></div><div class="lbl">Monday, May 20</div><div class="line"></div></div>
+
+        <div class="yesterday">
+          Yesterday's digest — <a href="#">view full message</a>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h3>Schedule config</h3>
+        <div class="field-row"><span class="k">Name</span><span class="v">Payments digest</span></div>
+        <div class="field-row"><span class="k">Cron</span><span class="v"><code>0 9 * * 1-5</code></span></div>
+        <div class="field-row"><span class="k">Timezone</span><span class="v">America/New_York</span></div>
+        <div class="field-row"><span class="k">Channel</span><span class="v">#standup</span></div>
+        <div class="field-row"><span class="k">Role</span><span class="v">casey (system)</span></div>
+        <div class="field-row"><span class="k">On skip</span><span class="v">DM @hassan</span></div>
+        <div class="field-row"><span class="k">Audit tag</span><span class="v"><code>cron:payments-digest</code></span></div>
+
+        <h3>Prompt template</h3>
+        <div class="prompt-card">Summarize yesterday's activity on the payments team across Linear, GitHub, and Notion. Include moved tickets, stale PRs (&gt;3 days), and new tickets. End with one thing worth flagging to the team.</div>
+
+        <h3>Recent runs</h3>
+        <div class="runs">
+          <div class="row"><span class="t">Tue 09:00</span><span class="s ok">✓ 1.8s · 18 tools</span></div>
+          <div class="row"><span class="t">Mon 09:00</span><span class="s ok">✓ 2.1s · 19 tools</span></div>
+          <div class="row"><span class="t">Fri 09:00</span><span class="s ok">✓ 1.4s · 12 tools</span></div>
+          <div class="row"><span class="t">Thu 09:00</span><span class="s ok">✓ 1.6s · 14 tools</span></div>
+          <div class="row"><span class="t">Wed 09:00</span><span class="s warn">⚠ skipped · notion 401</span></div>
+        </div>
+
+        <div class="note">
+          <strong>Same UX shape as a user-triggered turn.</strong> System turns (cron) use the same status-block → summary-card pattern. The only difference is the meta line shows <code>cron:payments-digest</code> instead of a username, and the action bar swaps <em>Follow-up</em> for <em>Skip tomorrow</em> / <em>Edit schedule</em>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pager">
+    <a href="04b-sandbox-fix.html">← Chapter 4 (canonical)</a>
+    <a class="home" href="06-schedule.html">View the streaming-pattern version →</a>
+    <a href="07b-incident.html">Next: incident scene →</a>
+  </div>
+</main>
+</body>
+</html>

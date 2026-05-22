@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>RapidusSquad — Product Mock Tour</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #07090f;
+    --bg-2: #0d1320;
+    --panel: #111a2e;
+    --panel-2: #0e1730;
+    --ink: #e7ecf5;
+    --ink-2: #c3cee0;
+    --mute: #7d8ba8;
+    --line: #1c2541;
+    --line-2: #233055;
+    --accent: #79c0ff;
+    --accent-2: #b794ff;
+    --ok: #6ee7a8;
+    --warn: #f5b461;
+    --bad: #f47878;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:
+      radial-gradient(1100px 600px at 75% -10%, rgba(121, 192, 255, 0.10), transparent 60%),
+      radial-gradient(900px 500px at 5% 110%, rgba(183, 148, 255, 0.08), transparent 60%),
+      var(--bg);
+    min-height: 100vh;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 64px 32px 96px; }
+  .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid rgba(121, 192, 255, 0.35);
+    padding: 5px 10px;
+    border-radius: 999px;
+    margin-bottom: 18px;
+  }
+  h1 {
+    font-size: 44px;
+    line-height: 1.05;
+    margin: 0 0 14px;
+    letter-spacing: -0.02em;
+    background: linear-gradient(180deg, #ffffff 0%, #b9c7e6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .lede {
+    font-size: 17px;
+    color: var(--ink-2);
+    max-width: 720px;
+    margin: 0 0 14px;
+  }
+  .meta {
+    color: var(--mute);
+    font-size: 13px;
+    margin-bottom: 48px;
+  }
+  .meta strong { color: var(--ink-2); font-weight: 600; }
+
+  .day-rail {
+    display: flex;
+    gap: 0;
+    align-items: center;
+    margin: 8px 0 32px;
+    font-size: 12.5px;
+    color: var(--mute);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .day-rail span { padding-right: 8px; }
+  .day-rail i { flex: 1; height: 1px; background: var(--line); display: inline-block; margin: 0 12px; font-style: normal; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+  }
+  .card {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px;
+    text-decoration: none;
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(400px 160px at var(--mx, 50%) var(--my, 0%), rgba(121,192,255,0.10), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+  .card:hover { transform: translateY(-2px); border-color: var(--line-2); box-shadow: 0 10px 32px rgba(0,0,0,0.35); }
+  .card:hover::before { opacity: 1; }
+  .card .chip {
+    align-self: flex-start;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mute);
+    border: 1px solid var(--line-2);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+  .card h3 {
+    margin: 4px 0 0;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+  }
+  .card p {
+    margin: 0;
+    color: var(--mute);
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  .card .open {
+    color: var(--accent);
+    font-size: 13px;
+    margin-top: auto;
+    padding-top: 14px;
+    font-weight: 600;
+  }
+  .card .open::after { content: " →"; }
+
+  .accent-chip { color: var(--accent) !important; border-color: rgba(121,192,255,0.35) !important; }
+  .purple-chip { color: var(--accent-2) !important; border-color: rgba(183,148,255,0.35) !important; }
+  .ok-chip { color: var(--ok) !important; border-color: rgba(110,231,168,0.35) !important; }
+  .warn-chip { color: var(--warn) !important; border-color: rgba(245,180,97,0.35) !important; }
+  .bad-chip { color: var(--bad) !important; border-color: rgba(244,120,120,0.35) !important; }
+
+  .section-title {
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mute);
+    margin: 40px 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-title::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  .foot {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    color: var(--mute);
+    font-size: 13px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    justify-content: space-between;
+  }
+  .foot a { color: var(--accent); text-decoration: none; }
+  kbd {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+</style>
+</head>
+<body>
+<main>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+    <span class="eyebrow">Edition 1 · Sandbox-visible (streaming) UX</span>
+    <a href="index2.html" style="text-decoration: none; color: var(--accent); font-weight: 600; font-size: 13px; padding: 8px 14px; border: 1px solid rgba(121,192,255,0.35); border-radius: 999px; background: rgba(121,192,255,0.06);">↗ Switch to canonical UX tour</a>
+  </div>
+  <h1>RapidusSquad — what your team's day with Casey will look like</h1>
+  <p class="lede">
+    Seven chapters. Each one is a frozen moment in the life of an Acme team
+    that just installed RapidusSquad. Click through to see the install
+    flow, what Slack looks like when Casey is doing real work, what the
+    admin sees in the web UI, and what happens when something goes wrong.
+  </p>
+  <p class="meta">
+    <strong>Beta partner:</strong> Acme · <strong>Stack:</strong> Slack + GitHub + Linear + Notion · <strong>Mode:</strong> self-hosted, customer's infra.
+  </p>
+
+  <div class="section-title">30-second pitch — start here</div>
+  <div class="grid">
+    <a class="card" href="elevator.html" style="grid-column: 1 / -1; background: linear-gradient(180deg, rgba(183,148,255,0.10), rgba(121,192,255,0.04)); border-color: rgba(183,148,255,0.35);">
+      <span class="chip purple-chip">Live mock · auto-plays</span>
+      <h3>Elevator pitch — watch Casey fix a flaky test in real time</h3>
+      <p>Animated sandbox terminal streams output as Claude reads files, runs pytest, sees the flake, edits, re-runs 50 times, and opens a PR. The same scene as Chapter 4, compressed into a 30-second auto-playing showcase. Best opening shot when showing this to anyone unfamiliar with the product.</p>
+      <span class="open">Play the elevator pitch</span>
+    </a>
+  </div>
+
+  <div class="section-title">Day 1 — install &amp; first user</div>
+  <div class="grid">
+    <a class="card" href="01-install.html">
+      <span class="chip accent-chip">Chapter 1 · 15 min</span>
+      <h3>Acme installs RapidusSquad</h3>
+      <p>Hassan (Acme admin) goes from <code>git clone</code> to "Casey is in Slack" in 15 minutes. Docker compose, Slack manifest, GitHub App manifest, bootstrap admin.</p>
+      <span class="open">Open the install flow</span>
+    </a>
+    <a class="card" href="02-onboarding.html">
+      <span class="chip accent-chip">Chapter 2 · 2 min</span>
+      <h3>Alice gets approved via <code>/register</code></h3>
+      <p>Alice DMs Casey for the first time, gets bounced, runs <code>/register</code>, Hassan approves from a DM. She's in. Self-serve onboarding without giving the bot any UPDATE permission.</p>
+      <span class="open">Open the onboarding flow</span>
+    </a>
+  </div>
+
+  <div class="section-title">Day 2 — real work</div>
+  <div class="grid">
+    <a class="card" href="03-slack-read.html">
+      <span class="chip purple-chip">Chapter 3 · read-only</span>
+      <h3>Alice asks across GitHub + Linear + Notion</h3>
+      <p>"Casey, what's the status on the payments migration?" Casey reads three connectors in one turn and gives a synthesized answer. No writes, no approvals needed.</p>
+      <span class="open">Open the cross-tool chat</span>
+    </a>
+    <a class="card" href="04-sandbox-fix.html">
+      <span class="chip purple-chip">Chapter 4 · the showcase</span>
+      <h3>Alice asks Casey to fix a flaky test</h3>
+      <p>Split-pane view: Slack thread on the left, live sandbox on the right showing Claude editing files, running pytest, iterating until green. Ends with a PR opened in trusted-author mode.</p>
+      <span class="open">Open the sandbox fix</span>
+    </a>
+    <a class="card" href="05-admin-ui.html">
+      <span class="chip ok-chip">Chapter 5 · admin UI</span>
+      <h3>Hassan opens the dashboard</h3>
+      <p>Access requests, connectors, audit log, schedules, system health page. The bundled Next.js admin UI gated by Slack OAuth.</p>
+      <span class="open">Open the admin UI</span>
+    </a>
+  </div>
+
+  <div class="section-title">Day 7 — autonomous</div>
+  <div class="grid">
+    <a class="card" href="06-schedule.html">
+      <span class="chip ok-chip">Chapter 6 · scheduled</span>
+      <h3>Daily standup digest fires at 09:00</h3>
+      <p>Nobody triggers Casey. <code>#standup</code> wakes up to a synthesized digest of moved Linear tickets, mergeable PRs, and what's stale. Configured once, runs forever.</p>
+      <span class="open">Open the schedule scene</span>
+    </a>
+  </div>
+
+  <div class="section-title">Day 30 — when things go wrong</div>
+  <div class="grid">
+    <a class="card" href="07-incident.html">
+      <span class="chip bad-chip">Chapter 7 · safety story</span>
+      <h3>Someone tries to make Casey do something bad</h3>
+      <p>A prompt-injection attempt fires inside a Notion page Casey is reading. The sandbox boundary holds, the rate limiter trips, Hassan gets a killswitch alert, audit log captures everything.</p>
+      <span class="open">Open the incident scene</span>
+    </a>
+  </div>
+
+  <div class="section-title">Design spec — how Casey actually renders</div>
+  <div class="grid">
+    <a class="card" href="08-casey-ux.html" style="grid-column: 1 / -1; background: linear-gradient(180deg, rgba(183,148,255,0.06), rgba(121,192,255,0.03)); border-color: rgba(183,148,255,0.25);">
+      <span class="chip purple-chip">Chapter 8 · interactive UX spec</span>
+      <h3>The canonical Casey-in-Slack UX (Cursor-style)</h3>
+      <p>Every Casey response renders as one mutating message: <code>idle → working → complete | cancelled | failed</code>. Working state shows a TodoWrite checklist that updates progressively. Completion collapses to a summary card with action buttons (View PR, View logs, overflow menu with Follow-up / Re-run / Feedback / Delete). Four scenarios — bugfix, QA, lookup, failure — all interactive. <strong>This is the production UX the FE agent should build.</strong> Chapters 3, 4, and the elevator use a parallel "stream of messages" pattern for the split-pane sandbox-visible mode; this chapter is the canonical default.</p>
+      <span class="open">Open the UX spec (interactive)</span>
+    </a>
+  </div>
+
+  <div class="foot">
+    <div>Mock data only — no real integrations are called. Use <kbd>←</kbd> / <kbd>→</kbd> on chapter pages to navigate.</div>
+    <div><a href="../docs/casey-self-hosted-product-plan.html">Back to product plan →</a></div>
+  </div>
+</main>
+<script>
+  document.querySelectorAll('.card').forEach(el => {
+    el.addEventListener('mousemove', e => {
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+      el.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+    });
+  });
+</script>
+</body>
+</html>

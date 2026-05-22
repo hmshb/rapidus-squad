@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter 3 (canonical) — Cross-tool query</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #fbfbfd; --bg-2: #ffffff;
+    --ink: #0e1116; --ink-2: #1d242f; --mute: #6e7787;
+    --line: #ecedf0; --line-2: #dde0e5;
+    --accent: #4f46e5; --accent-2: #8b5cf6; --accent-soft: #eef2ff;
+    --ok: #059669; --warn: #d97706; --bad: #dc2626;
+    --slack-ink: #1d1c1d; --slack-mute: #616061; --slack-blue: #1264a3;
+    --slack-line: #e3e3e5; --checklist-bg: #f8f8f8;
+    --slack-green: #2eb67d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+    background: radial-gradient(900px 500px at 85% -10%, rgba(79,70,229,0.08), transparent 60%), var(--bg);
+    min-height: 100vh;
+  }
+  .topbar { max-width: 1200px; margin: 0 auto; padding: 22px 32px 0; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--mute); }
+  .topbar a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .topbar .nav a { margin-left: 14px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 30px 32px 96px; }
+  h1 { font-size: 34px; margin: 12px 0 8px; letter-spacing: -0.02em; font-weight: 700; }
+  .lede { color: var(--ink-2); max-width: 780px; margin: 0 0 8px; font-size: 16px; line-height: 1.6; }
+  .who { color: var(--mute); font-size: 13.5px; margin-bottom: 30px; display: flex; gap: 18px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line); }
+  .who b { color: var(--ink-2); font-weight: 600; }
+
+  .split { display: grid; grid-template-columns: 1.45fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 1000px) { .split { grid-template-columns: 1fr; } }
+
+  /* Slack pane */
+  .slack {
+    background: white; border: 1px solid var(--slack-line); border-radius: 14px; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 12px 36px -10px rgba(15,23,42,0.10);
+  }
+  .slack-head {
+    padding: 14px 20px; border-bottom: 1px solid var(--slack-line);
+    display: flex; align-items: center; gap: 10px; background: white;
+  }
+  .slack-head .av { width: 22px; height: 22px; border-radius: 5px; background: linear-gradient(135deg,#4a8fdc,#2b6cba); color: white; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+  .slack-head .name { font-weight: 800; color: var(--slack-ink); font-size: 15px; }
+  .slack-head .app-tag { background: #ddd; color: #555; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+  .slack-head .meta { color: var(--slack-mute); font-size: 12.5px; }
+  .thread { padding: 18px 22px; background: white; }
+
+  .msg { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 8px 0; }
+  .avatar { width: 36px; height: 36px; border-radius: 6px; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+  .avatar.alice { background: linear-gradient(135deg, #2eb67d, #1a8c5e); }
+  .avatar.bot { background: linear-gradient(135deg, #4a8fdc, #2b6cba); }
+  .body { min-width: 0; }
+  .meta-row { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; }
+  .meta-row .uname { font-weight: 800; color: var(--slack-ink); font-size: 15px; }
+  .meta-row .app { background: #ddd; color: #555; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+  .meta-row .time { color: var(--slack-mute); font-size: 12px; }
+  .text { color: var(--slack-ink); font-size: 14.5px; line-height: 1.55; margin-top: 2px; }
+  .text code { background: #f4ede4; padding: 1px 5px; border-radius: 3px; color: #7c2d12; font-family: ui-monospace, monospace; font-size: 12.5px; }
+
+  /* Canonical status block */
+  .status-block {
+    margin-top: 8px; background: var(--checklist-bg);
+    border: 1px solid var(--slack-line); border-radius: 8px; overflow: hidden;
+  }
+  .status-header {
+    padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+    background: var(--checklist-bg); border-bottom: 1px solid var(--slack-line);
+  }
+  .status-icon { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 10px; font-weight: 700; }
+  .status-icon.complete { background: var(--slack-green); }
+  .status-icon.complete::after { content: "✓"; }
+  .status-label { font-weight: 700; font-size: 13.5px; color: var(--slack-ink); }
+  .status-meta { color: var(--slack-mute); font-size: 12.5px; }
+  .status-chevron { margin-left: auto; color: var(--slack-mute); font-size: 11px; transform: rotate(180deg); }
+  .status-body { padding: 12px 14px; background: white; }
+
+  .todo-list { list-style: none; padding: 0; margin: 0; }
+  .todo-item { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; font-size: 13.5px; }
+  .todo-mark { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; font-size: 10px; font-weight: 700; background: var(--slack-green); color: white; }
+  .todo-mark::after { content: "✓"; }
+  .todo-text { color: var(--slack-mute); line-height: 1.5; }
+
+  /* Summary card */
+  .summary-card {
+    margin-top: 8px; border: 1px solid var(--slack-line); border-left: 4px solid var(--slack-green);
+    background: white; border-radius: 6px; padding: 14px 16px;
+  }
+  .summary-card .label {
+    font-size: 11px; color: var(--slack-mute); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;
+  }
+  .summary-card h4 { margin: 10px 0 4px; font-size: 13px; font-weight: 700; color: var(--slack-ink); }
+  .summary-card h4:first-child { margin-top: 0; }
+  .summary-card ul { margin: 4px 0; padding-left: 18px; color: var(--slack-ink); font-size: 14px; line-height: 1.7; }
+  .summary-card .src { color: var(--slack-mute); font-size: 12px; font-style: italic; }
+  .summary-card .pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; font-weight: 700; margin-right: 6px; }
+  .summary-card .pill.lin { background: #f5e9ff; color: #6b27a8; }
+  .summary-card .pill.gh { background: #e9ecef; color: #24292f; }
+  .summary-card .pill.no { background: #fff1d8; color: #8a5a00; }
+  .summary-card .footer-text { margin-top: 12px; padding-top: 10px; border-top: 1px solid #f0f0f0; color: var(--slack-mute); font-size: 12.5px; }
+
+  /* Action bar */
+  .action-bar { margin-top: 10px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .action-btn {
+    background: white; border: 1px solid #c1c1c1; padding: 5px 12px;
+    border-radius: 4px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    color: var(--slack-ink); display: inline-flex; align-items: center; gap: 5px;
+  }
+  .action-btn:hover { background: #f0f0f0; }
+  .action-btn.primary { background: var(--slack-blue); color: white; border-color: var(--slack-blue); }
+  .action-btn.icon { padding: 5px 9px; }
+
+  .followup-msg { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 10px 0 0; }
+
+  /* Right side panel */
+  .panel {
+    background: white; border: 1px solid var(--line);
+    border-radius: 14px; padding: 22px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  }
+  .panel h3 { font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); margin: 0 0 14px; font-weight: 700; }
+  .panel h3:not(:first-child) { margin-top: 24px; }
+  .stat-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .k { color: var(--mute); }
+  .stat-row .v { color: var(--ink); font-family: ui-monospace, monospace; font-size: 12.5px; }
+  .stat-row .v.ok { color: var(--ok); }
+
+  .tool-pill {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; font-size: 12.5px; margin-bottom: 8px;
+  }
+  .tool-pill .head-row { display: flex; justify-content: space-between; }
+  .tool-pill .name { font-family: ui-monospace, monospace; color: var(--accent); font-size: 12.5px; font-weight: 700; }
+  .tool-pill .ms { color: var(--mute); font-family: ui-monospace, monospace; }
+  .tool-pill .args { color: var(--ink-2); margin-top: 4px; font-family: ui-monospace, monospace; font-size: 11.5px; }
+  .tool-pill .args .k { color: var(--mute); }
+
+  .note {
+    background: linear-gradient(135deg, var(--accent-soft) 0%, white 100%);
+    border: 1px solid rgba(79,70,229,0.18); border-radius: 10px; padding: 12px 14px;
+    color: var(--ink-2); font-size: 13px; margin-top: 18px; line-height: 1.6;
+  }
+  .note strong { color: var(--accent); }
+
+  .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13px; }
+  .pager a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .pager .home { color: var(--mute); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="index2.html">← Tour home (canonical edition)</a>
+  <div class="nav">
+    <span style="color:var(--mute)">Chapter 3 · canonical</span>
+    <a href="04b-sandbox-fix.html">Next: sandbox fix (canonical) →</a>
+  </div>
+</div>
+<main>
+  <h1>Alice asks across GitHub + Linear + Notion</h1>
+  <p class="lede">
+    Read-only flow rendered in the canonical Casey UX. Casey opens one
+    collapsing status block, walks through what it's reading as a TodoWrite
+    checklist, and ends with a labeled <em>Answer</em> card. No write
+    operations, no approvals — but the same UX shape as every other Casey turn.
+  </p>
+  <p class="who">
+    <span><b>Goal:</b> show cross-tool orchestration with the production UX, not a stream of messages.</span>
+    <span><b>State machine:</b> idle → working → complete</span>
+  </p>
+
+  <div class="split">
+    <div class="slack">
+      <div class="slack-head">
+        <div class="av">C</div>
+        <div class="name">Casey</div>
+        <div class="app-tag">APP</div>
+        <div class="meta">· DM with alice</div>
+      </div>
+      <div class="thread">
+        <div class="msg">
+          <div class="avatar alice">A</div>
+          <div class="body">
+            <div class="meta-row">
+              <span class="uname">Alice Park</span>
+              <span class="time">14:14</span>
+            </div>
+            <div class="text">what's the status on the payments migration? need to update Carlos before standup</div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="avatar bot">C</div>
+          <div class="body">
+            <div class="meta-row">
+              <span class="uname">Casey</span>
+              <span class="app">APP</span>
+              <span class="time">14:14</span>
+            </div>
+
+            <div class="status-block">
+              <div class="status-header">
+                <div class="status-icon complete"></div>
+                <span class="status-label">Completed</span>
+                <span class="status-meta">· 1.4s · 4 tools</span>
+                <span class="status-chevron">▾</span>
+              </div>
+              <div class="status-body">
+                <ul class="todo-list">
+                  <li class="todo-item"><div class="todo-mark"></div><div class="todo-text">Search Linear for active "payments migration" tickets</div></li>
+                  <li class="todo-item"><div class="todo-mark"></div><div class="todo-text">List open PRs on acme/api labeled <code>payments-migration</code></div></li>
+                  <li class="todo-item"><div class="todo-mark"></div><div class="todo-text">Read PR #1284 details (mergeability, reviews, CI)</div></li>
+                  <li class="todo-item"><div class="todo-mark"></div><div class="todo-text">Search Notion engineering-rfcs for the active RFC</div></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <div class="label">Answer</div>
+              <div style="color:var(--slack-ink);font-size:14.5px;line-height:1.6;margin-bottom:8px">Here's where it stands across the three places this work lives:</div>
+
+              <h4>Linear · <span class="src">payments-migration project</span></h4>
+              <ul>
+                <li><span class="pill lin">LIN-892</span> "Move Stripe webhook receiver behind queue" — <strong>In Review</strong>, assigned Bob, last updated 2h ago</li>
+                <li><span class="pill lin">LIN-905</span> "Backfill historical disputes" — <strong>Done</strong> yesterday by you</li>
+                <li><span class="pill lin">LIN-870</span> "Refund batch processing" — <strong>In Progress</strong>, assigned Carol, <span style="color:var(--bad)">5 days no update</span></li>
+              </ul>
+
+              <h4>GitHub · <span class="src">open PRs on acme/api</span></h4>
+              <ul>
+                <li><span class="pill gh">#1284</span> "Webhook receiver: queue-backed" — Bob's PR, <strong>1 approval / needs 1 more</strong>, CI green, mergeable</li>
+                <li><span class="pill gh">#1247</span> "Dispute webhook idempotency" — Carol's PR, <strong>no updates 4 days</strong>, conflicts with main</li>
+              </ul>
+
+              <h4>Notion · <span class="src">engineering-rfcs database</span></h4>
+              <ul>
+                <li><span class="pill no">RFC-021</span> "Payments migration plan" — last edited by you 2 weeks ago. Phase 2 (webhook queue) is the active phase per the doc.</li>
+              </ul>
+
+              <h4>What to tell Carlos</h4>
+              <ul>
+                <li>Phase 2 is one review away from shipping</li>
+                <li>Phase 3 (refund batch) is stalled — both of Carol's items are 4+ days idle</li>
+                <li>The RFC hasn't been updated since Phase 1 closed; worth a quick edit</li>
+              </ul>
+
+              <div class="footer-text">Sources: 4 read calls across 3 connectors. No state changed. No approval needed.</div>
+            </div>
+
+            <div class="action-bar">
+              <button class="action-btn primary">↗ View sources</button>
+              <button class="action-btn">📋 View logs</button>
+              <button class="action-btn icon">⋯</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="avatar alice">A</div>
+          <div class="body">
+            <div class="meta-row">
+              <span class="uname">Alice Park</span>
+              <span class="time">14:15</span>
+            </div>
+            <div class="text">perfect — thanks. can you also ping Carol about LIN-870?</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h3>What Casey actually did</h3>
+        <div class="stat-row"><span class="k">Tool calls</span><span class="v">4</span></div>
+        <div class="stat-row"><span class="k">Connectors touched</span><span class="v">3</span></div>
+        <div class="stat-row"><span class="k">Write-effect calls</span><span class="v ok">0</span></div>
+        <div class="stat-row"><span class="k">Approvals required</span><span class="v ok">0</span></div>
+        <div class="stat-row"><span class="k">Wall-clock</span><span class="v">1.4s</span></div>
+        <div class="stat-row"><span class="k">Tokens (in / out)</span><span class="v">2,144 / 380</span></div>
+
+        <h3>Calls in order</h3>
+        <div class="tool-pill">
+          <div class="head-row"><span class="name">linear-mcp.search_issues</span><span class="ms">280ms</span></div>
+          <div class="args"><span class="k">query:</span> "payments migration"</div>
+        </div>
+        <div class="tool-pill">
+          <div class="head-row"><span class="name">github-mcp.search_pulls</span><span class="ms">340ms</span></div>
+          <div class="args"><span class="k">repo:</span> acme/api · <span class="k">label:</span> payments-migration</div>
+        </div>
+        <div class="tool-pill">
+          <div class="head-row"><span class="name">github-mcp.get_pull_request</span><span class="ms">190ms</span></div>
+          <div class="args"><span class="k">number:</span> 1284</div>
+        </div>
+        <div class="tool-pill">
+          <div class="head-row"><span class="name">notion-mcp.search</span><span class="ms">420ms</span></div>
+          <div class="args"><span class="k">db:</span> engineering-rfcs</div>
+        </div>
+
+        <div class="note">
+          <strong>Why the canonical UX shines here.</strong> Instead of three separate Casey messages cluttering the thread, Alice sees <em>one</em> collapsible turn. She can re-open the checklist if she wants the receipts. The answer card itself is the durable artifact in the conversation.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pager">
+    <a href="index2.html">← Tour home (canonical)</a>
+    <a class="home" href="03-slack-read.html">View the streaming-pattern version of this chapter →</a>
+    <a href="04b-sandbox-fix.html">Next: sandbox fix →</a>
+  </div>
+</main>
+</body>
+</html>

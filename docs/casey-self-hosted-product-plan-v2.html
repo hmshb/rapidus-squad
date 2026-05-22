@@ -1,0 +1,1273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>RapidusSquad — Self-Hosted Product Plan (v2.1, audited)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0b1220;
+    --panel: #111a2e;
+    --panel-2: #0e1730;
+    --ink: #e6ecf5;
+    --mute: #93a4c0;
+    --line: #1f2a44;
+    --accent: #7cc4ff;
+    --ok: #6ee7a8;
+    --warn: #f5b461;
+    --bad: #f47878;
+    --purple: #c4a7ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 980px; margin: 0 auto; padding: 48px 24px 96px; }
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--mute); font-size: 13px; margin-bottom: 32px; }
+  .sub .version { color: var(--purple); font-weight: 600; }
+  h2 { font-size: 19px; margin: 48px 0 12px; letter-spacing: -0.01em; color: var(--accent); }
+  h3 { font-size: 14px; margin: 22px 0 6px; color: var(--ink); text-transform: uppercase; letter-spacing: 0.06em; }
+  h4 { font-size: 12.5px; margin: 14px 0 4px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.06em; }
+  p { margin: 0 0 12px; }
+  code { background: var(--panel-2); border: 1px solid var(--line); padding: 1px 6px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+  pre { background: var(--panel); border: 1px solid var(--line); padding: 14px 16px; border-radius: 8px; overflow-x: auto; font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; margin: 12px 0 16px; white-space: pre; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 20px; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--mute); font-weight: 600; }
+  ol, ul { padding-left: 22px; margin: 0 0 12px; }
+  li { margin-bottom: 6px; }
+  .ok { color: var(--ok); }
+  .warn { color: var(--warn); }
+  .bad { color: var(--bad); }
+  .muted { color: var(--mute); }
+  .purple { color: var(--purple); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 22px; margin: 14px 0 22px; }
+  .card h3 { margin-top: 0; }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; letter-spacing: 0.04em; border: 1px solid var(--line); color: var(--mute); margin-left: 8px; vertical-align: middle; }
+  .pill.mvp { color: var(--accent); border-color: var(--accent); }
+  .pill.v1 { color: var(--purple); border-color: var(--purple); }
+  .pill.v2 { color: var(--mute); }
+
+  .mock { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; margin: 10px 0; }
+  .mock .you { color: var(--accent); }
+  .mock .bot { color: var(--ok); }
+  .mock .mute { color: var(--mute); }
+  .mock .warn { color: var(--warn); }
+  .mock .deny { color: var(--bad); }
+  .mock .label { color: var(--purple); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 12px 0; }
+  .grid2 .col h4 { margin-top: 0; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 11px; border: 1px solid var(--line); color: var(--mute); margin: 0 4px 4px 0; vertical-align: middle; }
+
+  .hero { background: linear-gradient(160deg, #0f1a35 0%, #0c1428 100%); border: 1px solid var(--line); border-radius: 12px; padding: 22px 26px; margin-bottom: 32px; }
+  .hero .what { color: var(--accent); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+  .hero h2 { color: var(--ink); margin: 0 0 8px; font-size: 22px; letter-spacing: -0.01em; }
+  .hero p { color: var(--mute); margin: 0; }
+
+  .audit-banner {
+    background: linear-gradient(135deg, rgba(196,167,255,0.06) 0%, rgba(124,196,255,0.03) 100%);
+    border: 1px solid rgba(196,167,255,0.3);
+    border-left: 3px solid var(--purple);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 24px;
+    font-size: 13.5px;
+    color: var(--mute);
+  }
+  .audit-banner strong { color: var(--purple); }
+  .audit-banner a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>RapidusSquad — Self-Hosted Product Plan</h1>
+<div class="sub">
+  <span class="version">v2.1 · second-pass audit</span> · Per-customer install · MCP connectors · Sandbox · OSS + Docker · 2026-05-22
+</div>
+
+<div class="audit-banner">
+  <strong>This is the v2.1 second-pass audit.</strong> The original plan
+  <a href="casey-self-hosted-product-plan.html">(v1 here)</a> is preserved as a
+  backup. v2 reconciled 22 issues found in the first audit. v2.1 layers in 10
+  architectural decisions made on second pass: <em>(1)</em> Claude runs
+  <em>inside</em> the sandbox behind an Anthropic-only egress proxy; <em>(2)</em>
+  <code>casey-app</code> splits into router + broker so the credential surface
+  isn't a single process; <em>(3)</em> channel-scoped trust + per-user quota
+  move the real attack surface off of <code>dev</code>; <em>(4)</em> Strategy A
+  becomes invisible degraded-mode fallback, not a user-facing option;
+  <em>(5)</em> scope cuts from v1 (three SecretsProvider adapters, fullstack
+  sandbox image, JSONL archive toggle, two-admin rule, custom MCP via URL
+  paste); <em>(6)</em> hosted SSE MCPs get a release-CI smoke test instead of
+  protocol-version "pinning"; <em>(7)</em> warm pool for sandbox containers
+  dropped in favor of lazy containers + persistent <code>/workdir</code>
+  volumes; <em>(8)</em> <code>node-cron</code> gets a <code>last_fired_at</code>
+  persistence story for missed runs; <em>(9)</em> Postgres role matrix becomes
+  a v1 migration artifact, not a sentence in a doc; <em>(10)</em>
+  <code>NOTICE</code> file generated in CI from the start.
+</div>
+
+<div class="hero">
+  <div class="what">The pivot, restated</div>
+  <h2>RapidusSquad runs in your infra, talks to your tools through MCP, and iterates on your code inside a hardened sandbox you own.</h2>
+  <p>
+    Each customer creates their own Slack app from our manifest, their own
+    GitHub App from a second manifest, deploys our Docker image to their own
+    host, and runs MCP connectors for GitHub / Notion / Linear / etc. The
+    bundled <em>casey-sandbox</em> container is where Claude actually executes
+    code — clones the customer's repo into <code>/workdir</code>, runs tests,
+    iterates locally — without ever holding credentials or reaching the
+    internet. Casey-app holds the credentials and only pushes after Claude
+    hands back a finished patch. The May 2026 incident's primitives (host
+    bash, host filesystem, host env-vars) are gone; their hardened equivalents
+    live inside a container whose blast radius is the customer's own
+    <code>/workdir</code>.
+  </p>
+  <p style="color: var(--mute); font-size: 13.5px; margin-top: 10px;">
+    <strong class="purple">v1 rollout:</strong> weeks 1–3 ship on <strong>Strategy A</strong>
+    (CI-driven — Casey pushes branches, GitHub Actions runs tests, Casey
+    iterates on CI logs) so the foundation slice doesn't block on sandbox
+    hardening. Weeks 4–12 introduce <strong>Strategy B</strong> (the bundled
+    sandbox described above), which becomes the only first-class compute path.
+    <strong>A is retained as invisible degraded-mode fallback</strong> — when
+    a sandbox can't start (image pull fail, disk pressure, sandbox crash),
+    Casey transparently falls back to A for that turn and surfaces the
+    downgrade in Slack + the health page. Customers don't <em>pick</em> A;
+    they get it automatically when B isn't healthy, with a circuit breaker
+    that backs off after 3 failures per repo. See §9 for the full compute layer.
+  </p>
+</div>
+
+<!-- ============================================================== -->
+<!-- §1 ARCHITECTURE -->
+<!-- ============================================================== -->
+
+<h2>1 — Architecture</h2>
+
+<p>
+Every customer runs the same stack inside their own infra. Nothing we operate
+sits between them and their data. The "product" is the Docker image (with
+vendored MCP servers + sandbox base images), the Slack and GitHub manifests,
+the connector recipe library, and the admin web UI bundled in the image.
+</p>
+
+<pre>┌───── Customer infrastructure (their Docker host / VPC / k8s) ──────┐
+│                                                                     │
+│   ┌──────────────────┐         ┌────────────────────────────┐      │
+│   │  casey-router    │ ◄─────► │  postgres                  │      │
+│   │  (Node + Bolt)   │         │  • casey_users             │      │
+│   │  • Slack events  │         │  • approvals               │      │
+│   │  • Admin web UI  │         │  • audit log (90d default) │      │
+│   │  • Claude        │         │  • connector configs       │      │
+│   │    orchestration │         │  • schedules               │      │
+│   │  • Holds NO      │         │  • repo_trust, user_policy │      │
+│   │    creds — calls │         │  • cron last_fired_at      │      │
+│   │    broker for    │         │  ── role: casey_bot (SEL/  │      │
+│   │    every write   │         │     INSERT-mostly)         │      │
+│   └────┬────┬────────┘         │  ── role: casey_admin (UI) │      │
+│        │    │                  └────────────────────────────┘      │
+│   broker RPC (local socket; fixed menu: openPR, push,             │
+│   comment, …)                                                      │
+│        ▼                                                            │
+│   ┌──────────────────────────────────────┐                         │
+│   │  casey-broker                         │                         │
+│   │  • holds GitHub App private key       │                         │
+│   │  • holds OAuth refresh tokens         │                         │
+│   │  • enforces rapidus/* branch          │                         │
+│   │    allowlist (server-side)            │                         │
+│   │  • signs + makes outbound API calls   │                         │
+│   └──────┬─────────────────────────┬──────┘                         │
+│          │                          │                                │
+│  vendored MCP                       │ sandbox RPC (private net)    │
+│  ▼                                  ▼                                │
+│ ┌──────────────────────┐  ┌────────────────────────────────────┐   │
+│ │ MCP server pool       │  │  casey-sandbox  (one per repo)     │   │
+│ │ (vendored, pinned)    │  │  • repo clone in /workdir         │   │
+│ │ ├─ github-mcp         │  │  • claude CLI runs HERE           │   │
+│ │ ├─ notion-mcp (SSE)   │  │  • bash allowlist                 │   │
+│ │ ├─ linear-mcp         │  │  • path enforcer (resolved-path)  │   │
+│ │ └─ slack-mcp          │  │  • env scrub (PATH/HOME/LANG only)│   │
+│ └──────────────────────┘  │  • egress: ONLY api.anthropic.com │   │
+│                            │    via cert-pinned proxy          │   │
+│   ┌──────────────────┐    │  • CPU / RAM / wall-clock caps    │   │
+│   │  scheduler       │    │  • lazy start + persistent volume │   │
+│   │  (node-cron +    │    │  • holds NO credentials           │   │
+│   │   last_fired_at) │    └────────────────────────────────────┘   │
+│   └──────────────────┘                                              │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+         ▲                                       │
+         │  signed events                        │  API calls (OAuth tokens
+         │  from Slack                           ▼   live in casey-broker only)
+   ┌──────────────┐                  ┌────────────────────────────┐
+   │  Customer's  │                  │  External SaaS APIs        │
+   │  Slack       │                  │  (GitHub, Notion, Linear,  │
+   │  workspace   │                  │   Google Drive, Jira, …)   │
+   └──────────────┘                  └────────────────────────────┘</pre>
+
+<div class="grid2">
+  <div class="col card">
+    <h4>What we ship</h4>
+    <ul>
+      <li>OSS repo (GitHub) — <strong>AGPL-3.0 + commercial exception</strong></li>
+      <li>Docker image (<code>rapidussquad/app:vX.Y.Z</code>) with vendored MCP servers baked in</li>
+      <li>Pre-built sandbox base images: <code>rapidussquad/sandbox:python-3.12</code>, <code>:node-20</code> (the <code>:fullstack</code> combo image is post-v1)</li>
+      <li><code>docker-compose.yml</code> + <code>.env.example</code></li>
+      <li><strong>Slack app manifest</strong> (YAML, ready to paste)</li>
+      <li><strong>GitHub App manifest</strong> (per-customer creation flow — we never own a shared App)</li>
+      <li>MCP connector recipes (config snippets per popular tool)</li>
+      <li>Admin web UI (bundled in the image)</li>
+      <li>Migration files (with <strong>Postgres role matrix</strong> — <code>casey_bot</code> least-privilege, <code>casey_admin</code> for UI writes), healthcheck endpoints, <code>/admin/health</code> + <code>/admin/health.json</code></li>
+      <li><code>casey backup</code> + <code>casey prune</code> CLI wrappers</li>
+      <li><code>LICENSE</code> (AGPL-3.0) + <code>COMMERCIAL_LICENSE.md</code> + <code>NOTICE</code> (auto-generated from vendored deps, regenerated in release CI) in repo root</li>
+    </ul>
+  </div>
+  <div class="col card">
+    <h4>What customer brings</h4>
+    <ul>
+      <li>A host (VM, k8s pod, Docker on their laptop — anything Linux-kernel)</li>
+      <li>A domain + TLS cert (or Cloudflare Tunnel / ngrok for dev)</li>
+      <li>An Anthropic API key — <strong>customer pays Anthropic directly (BYO)</strong></li>
+      <li>5 minutes in Slack admin to create their Slack app from the manifest</li>
+      <li>~10 minutes to create their own GitHub App in their org (script-guided)</li>
+      <li>OAuth tokens / API keys for each additional MCP connector they use</li>
+      <li>(Optional) Their existing Postgres backup tooling</li>
+    </ul>
+  </div>
+</div>
+
+<p class="muted">
+  <strong>Deployment scope:</strong> one RapidusSquad install serves one Slack
+  workspace. Multi-workspace (agency / parent-co scenario) is post-v1, gated
+  on a real customer asking for it.
+</p>
+
+<!-- ============================================================== -->
+<!-- §2 INSTALL FLOW -->
+<!-- ============================================================== -->
+
+<h2>2 — Per-customer install flow (target: 15 minutes)</h2>
+
+<div class="card">
+<h3>Step-by-step for the customer admin</h3>
+<ol>
+  <li>
+    <strong>Pull and configure.</strong>
+    <pre>git clone https://github.com/rapidussquad/rapidussquad
+cd rapidussquad
+cp .env.example .env
+# edit .env — set ANTHROPIC_API_KEY, POSTGRES_PASSWORD, DOMAIN
+docker compose up -d</pre>
+    Three containers come up: <code>casey-app</code>, <code>postgres</code>,
+    <code>casey-sandbox</code> (idle until a ticket needs it). Admin UI listens on
+    <code>https://&lt;DOMAIN&gt;</code>.
+  </li>
+  <li>
+    <strong>Bootstrap the admin.</strong>
+    First-time visit to <code>https://&lt;DOMAIN&gt;/setup</code>: paste the
+    one-time setup token (printed to docker logs at boot) + the Slack user ID
+    of the first admin. Creates the bootstrap admin row in Postgres.
+  </li>
+  <li>
+    <strong>Create the Slack app from manifest.</strong>
+    Paste <code>slack-manifest.yaml</code> into <code>api.slack.com/apps → Create New App → From manifest</code>,
+    install to workspace, paste Bot Token + Signing Secret back into the admin
+    UI. <code>docker compose restart casey-app</code> picks them up.
+  </li>
+  <li>
+    <strong>Create the GitHub App from manifest.</strong>
+    Admin UI generates a one-time URL that hands GitHub a manifest. Customer
+    confirms permissions (Contents R/W, PRs R/W, Issues R/W, Metadata R; no
+    Workflows, no Administration, no Secrets), installs the App on the repos
+    Casey should see, and GitHub redirects back with the installation ID. App
+    secrets live in the customer's GitHub org; we never touch them.
+  </li>
+  <li>
+    <strong>Pick repos and trust modes.</strong>
+    For each repo the GitHub App can see, pick one of three modes:
+    <code>trusted-author</code> (Casey opens PRs directly; default for most app
+    repos), <code>gated</code> (PR opens require admin 👍 in Slack first; for
+    money / auth / billing), or <code>read-only</code> (Casey can read and
+    analyze, never writes; for infra / secrets repos). Sensitive-looking repo
+    names are pre-flagged as <code>gated</code>. Branch protection on
+    <code>main</code> is verified at this step and re-checked daily.
+  </li>
+  <li>
+    <strong>Choose user onboarding policy.</strong>
+    One of three defaults:
+    <ul>
+      <li><strong>Auto-approve Slack workspace members</strong> (recommended) — anyone in the customer's Slack workspace is approved on first contact as <code>dev</code>.</li>
+      <li><strong>Auto-approve email domain</strong> — e.g. only <code>@acme.com</code> emails get auto-approved; everyone else falls back to <code>/register</code>.</li>
+      <li><strong>Manual approval only</strong> — every user goes through <code>/register</code>; the admin approves each one.</li>
+    </ul>
+    <code>/register</code> always works as the manual fallback regardless of policy.
+  </li>
+  <li>
+    <strong>Add additional MCP connectors via the admin UI.</strong>
+    Pick from a catalog (Notion, Google Drive, Jira, …) or paste a custom MCP
+    server URL. Each connector wizard handles its OAuth / token setup.
+  </li>
+  <li>
+    <strong>Invite Casey to Slack channels.</strong> <code>/invite @Casey</code> wherever they want it.
+    Users self-register or get auto-approved depending on the policy chosen in step 6.
+  </li>
+</ol>
+</div>
+
+<div class="card">
+<h3>What we still control (lightly)</h3>
+<ul>
+  <li><strong>Docker image registry.</strong> We publish (<code>rapidussquad/app</code>, <code>rapidussquad/sandbox</code>); customer pulls. They can mirror internally if they prefer.</li>
+  <li><strong>OSS repo.</strong> AGPL-3.0; source available; issues and releases on GitHub.</li>
+  <li><strong>Connector recipe library.</strong> Living config snippets for popular MCP servers, pinned to vendored versions.</li>
+  <li><strong>Update channel.</strong> A simple version-check ping (opt-in) so customers know when an update is available. No code or data leaves their host. Upgrades are <code>docker compose pull &amp;&amp; docker compose up -d</code>, documented in <code>UPGRADING.md</code>.</li>
+</ul>
+<p class="muted">
+  Everything else — auth, data, secrets, audit log, run history, sandbox volumes — lives on the customer's host. Nothing transits ours.
+</p>
+</div>
+
+<!-- ============================================================== -->
+<!-- §3 CONNECTOR MODEL -->
+<!-- ============================================================== -->
+
+<h2>3 — Connector model (MCP)</h2>
+
+<p>
+Every <em>external</em> capability — talking to GitHub, Linear, Notion, Slack
+— is an <strong>MCP server</strong>. Each server is OAuth-scoped (or token-scoped)
+to the customer's data; nothing crosses tenant boundaries because there are no
+shared tenants.
+</p>
+<p>
+<strong>Pinning strategy by transport.</strong> MCP servers come in two shapes
+and we pin each accordingly:
+</p>
+<ul>
+  <li><strong>npm / binary MCPs</strong> (github-mcp, linear-mcp, slack-mcp) are
+  <em>vendored</em> into the RapidusSquad Docker image at known commits.
+  Customers never pull "latest" from upstream npm/registry; breaking changes
+  upstream are only seen on a RapidusSquad release bump.</li>
+  <li><strong>Hosted SSE MCPs</strong> (notion-mcp runs on Notion's servers,
+  reached over <code>https://mcp.notion.com/sse</code>) cannot be vendored —
+  there's no binary to bake in. We pin by <em>URL + MCP protocol version</em>
+  <strong>and run a release-CI + nightly smoke test</strong> that hits each
+  hosted endpoint with a fixed set of queries and asserts the response shape.
+  If Notion ships a backwards-incompatible change, CI fails before customers
+  do — we file the upstream bug, ship a workaround, and warn in release notes.</li>
+</ul>
+<p>Either way, customers don't chase upstream churn between RapidusSquad releases.
+</p>
+<p>
+<em>Internal</em> capabilities — editing files, running tests, iterating on
+code — happen inside the <code>casey-sandbox</code> container (§9). The sandbox
+has bash (allowlisted), a filesystem (<code>/workdir</code> only), and Python /
+Node / pytest / playwright / etc. — but it has <strong>no credentials</strong>
+and <strong>no network egress</strong>. MCP gives Casey external reach; the
+sandbox gives Casey local execution. They're complementary, not alternatives.
+</p>
+
+<div class="card">
+<h3>Built-in connectors (vendored at v1)</h3>
+<table>
+  <thead>
+    <tr><th>Connector</th><th>Auth</th><th>Capabilities</th><th>Write-effect gating</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>slack-mcp</td>
+      <td>Bot token (from manifest install)</td>
+      <td>Read channel history, post messages, manage threads</td>
+      <td>L3 reaction-confirm for posting to channels other than the originating thread</td>
+    </tr>
+    <tr>
+      <td>github-mcp</td>
+      <td>Per-customer GitHub App (manifest flow)</td>
+      <td>Search code, read files, read issues/PRs, comment, open PRs, push to branches the App can write</td>
+      <td>Per-repo trust mode (<code>trusted-author</code> / <code>gated</code> / <code>read-only</code>) — see §9. Branch protection on <code>main</code> is the merge gate, always.</td>
+    </tr>
+    <tr>
+      <td>linear-mcp</td>
+      <td>Linear API key</td>
+      <td>Search issues, read details, comment, create</td>
+      <td>L3 reaction-confirm for <code>create_issue</code>, <code>update_issue_status</code> on high-priority items</td>
+    </tr>
+    <tr>
+      <td>notion-mcp</td>
+      <td>Notion OAuth</td>
+      <td>Search, read pages, create pages, append blocks</td>
+      <td>L3 reaction-confirm for <code>create_page</code>, <code>update_page</code>, <code>delete_block</code></td>
+    </tr>
+  </tbody>
+</table>
+<p class="muted">
+  Post-v1 connectors (Google Drive, Jira, custom MCP via URL paste) follow the same vendor-or-config pattern. Customers wiring custom servers via URL paste accept that they're outside our pinning guarantee.
+</p>
+<p class="muted">
+  <strong class="purple">Casey-app policies layered on top of github-mcp.</strong>
+  github-mcp itself is generic — it can push wherever the underlying GitHub
+  App has permission. The "Casey may only push to <code>rapidus/*</code>
+  branches, never to <code>main</code>, never force-push outside its own
+  branches" rule is enforced in <em>casey-app</em>, not in the MCP server: a
+  pre-call interceptor rejects any <code>push</code> / <code>create_ref</code>
+  / <code>update_ref</code> targeting a ref that doesn't match the allowlist.
+  Branch protection on <code>main</code> is the second line of defense.
+</p>
+</div>
+
+<div class="card">
+<h3>Connector config (DB-backed, edited via UI or YAML)</h3>
+<pre>connectors:
+  - name: github
+    type: mcp
+    transport: stdio
+    # vendored — points at the binary baked into the image, NOT npm
+    command: /opt/rapidussquad/mcp-servers/github-mcp/bin/server
+    env:
+      GITHUB_APP_INSTALLATION_ID: "{{ vault:github_install_id }}"
+      GITHUB_APP_PRIVATE_KEY:     "{{ vault:github_app_key }}"
+    write_effect_gating:
+      # PR opens use per-repo trust mode, not blanket L3
+      open_pull_request: per_repo_trust_mode
+      merge_pull_request: never_allowed
+    enabled: true
+
+  - name: notion
+    type: mcp
+    # hosted SSE — Notion runs the MCP server, we connect to it.
+    # No binary to vendor; pinned by URL + protocol version.
+    transport: sse
+    url: https://mcp.notion.com/sse
+    protocol_version: "2025-03-26"
+    auth:
+      type: oauth
+      token: "{{ vault:notion_token }}"
+    write_effect_gating:
+      create_page: l3_reaction
+      update_page: l3_reaction
+      delete_block: l3_reaction
+    enabled: true</pre>
+<p class="muted">
+  Secrets aren't stored inline — vault references resolve from Docker secrets by default. Adapters for AWS Secrets Manager, HashiCorp Vault, and Infisical are in the v1 scope but slot in via a <code>SecretsProvider</code> interface (so post-v1 customers can write their own).
+</p>
+</div>
+
+<!-- ============================================================== -->
+<!-- §4 END-USER FLOW -->
+<!-- ============================================================== -->
+
+<h2>4 — End-user flow (Slack mockups)</h2>
+
+<div class="card">
+<h3>4.1 — First-time user (auto-approve default)</h3>
+<p>With the default policy (auto-approve workspace members), most users never see <code>/register</code>:</p>
+<div class="mock"><span class="you">alice</span>  <span class="mute">12:14</span>  @casey what's the status on the payments release?
+
+<span class="bot">Casey</span>  <span class="mute">12:14</span>  <span class="label">Welcome — auto-approved as dev</span>
+You're in (auto-granted because you're a member of acme.slack.com).
+Looking up the payments release now…
+
+<span class="bot">Casey</span>  <span class="mute">12:14</span>  Three things blocking: ...</div>
+<p>The manual fallback (only for users outside the policy — contractors, externals, or when policy is set to manual-only):</p>
+<div class="mock"><span class="you">bob</span>  <span class="mute">12:14</span>  /register I'm a QA contractor, in Slack but bob@vendor.io
+
+<span class="bot">Casey</span>  Request submitted. Admin will get a DM.</div>
+<p>Meanwhile in Hassan's DMs with Casey:</p>
+<div class="mock"><span class="bot">Casey</span>  <span class="mute">12:14</span>
+<span class="label">Access request — manual approval needed</span>
+User: *Bob Lee* (`U_BOB`)
+Email: bob@vendor.io
+Reason: QA contractor, in Slack but bob@vendor.io
+
+<span class="mute">Approve in the admin UI:</span> https://casey.acme.com/admin/access
+</div>
+<p class="muted">Approval writes happen via the <code>casey_admin</code> Postgres role used by the admin UI; the bot's role has <code>SELECT, INSERT</code> only — never <code>UPDATE</code> on user records. Even a compromised bot cannot self-approve.</p>
+</div>
+
+<div class="card">
+<h3>4.2 — Read across tools (the everyday case)</h3>
+<p>Rendered in the canonical Casey UX (see §11): one collapsing message with a TodoWrite checklist that updates as Casey works, ending in a labeled summary card.</p>
+<div class="mock"><span class="you">alice</span>  <span class="mute">14:02</span>  @casey what's blocking the payments release? check linear and the open PRs
+
+<span class="bot">Casey</span> <span class="mute">14:02</span>
+[● Completed · 1.4s · 4 tools]
+  ✓ Search Linear for active payments-release tickets
+  ✓ List open PRs on acme/api labeled payments
+  ✓ Read PR #1284 details
+  ✓ Cross-reference RFC-021 in Notion
+
+<span class="label">ANSWER</span>
+Three things blocking:
+1. *LIN-892* — Stripe webhook retry (Bob, In Review)
+2. *PR #1284* — Idempotency key migration — CI failing on flaky test
+3. *PR #1291* — Refund endpoint — needs review from @hassan
+  [↗ View sources] [📋 View logs] [⋯]</div>
+<p class="muted">Casey grounded the answer in actual Linear + GitHub + Notion data — no hallucination. Every mention is a clickable deep link. The full UX spec for this rendering is in §11.</p>
+</div>
+
+<div class="card">
+<h3>4.3 — Write through a connector (per-repo trust mode determines gating)</h3>
+<p class="muted" style="font-size:13px;margin:0 0 8px">
+  Shown here for a <code>gated</code> repo (e.g. <code>acme/billing</code>). In <code>trusted-author</code> mode (default for most app repos), Casey opens the PR directly without the 👍 step; branch protection on <code>main</code> + the required human review on the PR are the gate.
+</p>
+<div class="mock"><span class="you">alice</span>  <span class="mute">14:07</span>  @casey open a PR fixing the flaky test in 1284
+
+<span class="bot">Casey</span> <span class="mute">14:08</span>
+[● Working… · casey/fix-flaky-webhook-test]
+  ✓ Read PR #1284 and the failing test
+  ✓ Edited test_stripe_webhook.py (+8 / −3)
+  ✓ Verified 50× rerun + lint + typecheck
+
+<span class="label">⚠ Approval required — github.open_pull_request (gated repo)</span>
+About to open PR with these changes on acme/billing/main.
+React 👍 to approve (admin only). 5 min timeout.
+
+<span class="you">hassan</span>  <span class="mute">14:08</span>  👍
+
+<span class="bot">Casey</span> <span class="mute">14:08</span>
+[● Completed]
+<span class="label">SUMMARY</span> Opened *PR #1305* · linked to LIN-892
+  [↗ View PR #1305] [📋 View logs] [⋯]</div>
+</div>
+
+<div class="card">
+<h3>4.4 — Scheduled / autonomous task</h3>
+<p>Hassan configures in admin UI: <em>"Daily 09:00 ET in #standup: post Linear + GitHub digest for the payments team."</em> The scheduled run renders as a system-author Casey message in the canonical UX:</p>
+<div class="mock"><span class="mute">━━━━━ #standup ━━━━━</span>
+<span class="bot">Casey</span> <span class="mute">09:00</span>
+[● Completed · 1.8s · 18 tools · cron:payments-digest]
+
+<span class="label">PAYMENTS DIGEST — TUE MAY 21</span>
+*Moved yesterday*
+• LIN-892 → In Review (Bob)
+• PR #1284 → Mergeable
+• LIN-905 → Done (Alice)
+
+*Stale (>3 days no update)*
+• LIN-870 — Refund batch processing
+• PR #1247 — Dispute webhook (assigned: Carol)
+
+*New since yesterday*
+• LIN-912 — 3DS challenge UI regression (P1)
+
+⚠ One thing I'd flag: LIN-870 and #1247 are both Carol's, both stale.
+
+<span class="mute">Sources: Linear (12 issues) · GitHub (6 PRs) · 1.8s</span>
+  [⏭ Skip tomorrow] [⚙ Edit schedule] [📋 View logs] [⋯]</div>
+</div>
+
+<!-- ============================================================== -->
+<!-- §5 ADMIN WEB UI -->
+<!-- ============================================================== -->
+
+<h2>5 — Admin web UI (bundled in the Docker image)</h2>
+
+<p>
+One small Next.js app served by the same container, gated by Slack OAuth
+(the admin's Slack identity, verified against <code>casey_users.role='admin'</code>).
+No separate Clerk needed at v1 — Slack itself is the IdP. The admin web UI is
+where the <code>casey_admin</code> Postgres role's writes happen
+(<code>UPDATE</code> on users, connector edits, schedule edits) — the bot's
+role can never reach these tables for writes.
+</p>
+
+<div class="grid2">
+<div class="col card">
+<h4>User onboarding policy <span class="pill v1">v1</span></h4>
+<div class="mock"><span class="label">User policy</span>
+┌─────────────────────────────────────────────────┐
+│ Current: Auto-approve Slack workspace members   │
+│          → role: dev (admin granted manually)   │
+│                                                 │
+│ Auto-approved (7d):  12                         │
+│ Manual /register:     2  (contractors, ext)     │
+│                                                 │
+│           [ Change policy ]                     │
+└─────────────────────────────────────────────────┘
+</div>
+</div>
+
+<div class="col card">
+<h4>Access requests (manual fallback)</h4>
+<div class="mock"><span class="label">Pending (2)</span>
+┌─────────────────────────────────────────────────┐
+│ Bob Lee     bob@vendor.io     "QA contractor"   │
+│ [Approve as: dev ▾]  [Deny]                     │
+├─────────────────────────────────────────────────┤
+│ Carlos R.   carlos@consulting.io  "external"    │
+│ [Approve as: dev ▾]  [Deny]                     │
+└─────────────────────────────────────────────────┘
+</div>
+</div>
+
+<div class="col card">
+<h4>Connectors</h4>
+<div class="mock"><span class="label">Connectors</span>
+┌─────────────────────────────────────────────────┐
+│ ✅ slack-mcp   acme.slack.com  · 30s ago         │
+│ ✅ github-mcp  acme org · 5 repos · 2m ago       │
+│ ✅ linear-mcp  acme workspace · 14m ago          │
+│ ⚠  notion-mcp  401 (7m ago) [Reauth]             │
+│ ➕ Add a connector…                              │
+└─────────────────────────────────────────────────┘
+</div>
+</div>
+
+<div class="col card">
+<h4>Repositories &amp; trust modes <span class="pill v1">v1</span></h4>
+<div class="mock"><span class="label">Repositories (5)</span>
+┌─────────────────────────────────────────────────┐
+│ acme/web            trusted-author  ● protected │
+│ acme/api            trusted-author  ● protected │
+│ acme/billing        gated           ● protected │
+│ acme/auth-service   gated           ● protected │
+│ acme/infrastructure read-only           —       │
+└─────────────────────────────────────────────────┘
+Daily branch-protection re-check: ✓ all good
+</div>
+</div>
+
+<div class="col card">
+<h4>Audit log</h4>
+<div class="mock"><span class="label">Recent activity</span>
+14:19:02  pr.opened       casey → acme/api#1306 (trusted-author)
+14:18:24  sandbox.run     acme/api · pytest passed 50/50
+14:14:11  query           alice · 4 tool calls
+14:04:30  policy.change   hassan: auto-approve → dev (default role)
+14:03:22  user.register   alice@acme.com auto-approved
+13:50:30  scheduler.tick  cron:payments-digest
+...</div>
+</div>
+
+<div class="col card">
+<h4>Schedules</h4>
+<div class="mock"><span class="label">Recurring tasks</span>
+┌─────────────────────────────────────────────────┐
+│ ✅ Payments digest      Mon-Fri 09:00 ET        │
+│ ✅ Weekly KPI summary   Fri 17:00 ET            │
+│ ✅ Stale PR reminder    Daily 10:30 ET          │
+│ ➕ New schedule…                                │
+└─────────────────────────────────────────────────┘
+</div>
+</div>
+
+<div class="col card" style="grid-column: 1 / -1;">
+<h4>System health (<code>/admin/health</code> + JSON endpoint for Prometheus)</h4>
+<div class="mock"><span class="label">RapidusSquad — System Health</span>
+┌──────────────────────────────────────────────────────────────┐
+│  Slack connection           ●  connected (Socket Mode)       │
+│  Postgres                   ●  connected                     │
+│  Anthropic API              ●  reachable (last 30s)          │
+│  Sandbox runtime            ●  docker engine OK              │
+│  Disk free                  ●  62 / 80 GB                    │
+│                                                              │
+│  ── Connectors ──────────────────────────────────────────    │
+│  github-mcp     ●  ok        2m ago                          │
+│  linear-mcp     ●  ok        14m ago                         │
+│  notion-mcp     ⚠  degraded  401, 7m ago                     │
+│  slack-mcp      ●  ok        30s ago                         │
+│                                                              │
+│  ── Sandbox pool (one per repo) ─────────────────────────    │
+│  acme/web         ●  warm   last used: 3m ago                │
+│  acme/api         ●  warm   last used: 1h ago                │
+│  acme/billing     ○  cold   last used: 6d ago                │
+│  acme/auth-svc    ○  cold   last used: 12d ago               │
+│                                                              │
+│  ── Last successful turn ────────────────────────────────    │
+│  4m ago • #engineering • alice@acme.com                      │
+│  "Fix the flaky webhook test" → PR #1306 opened ✓            │
+│                                                              │
+│  ── Recent errors (last 24h: 3) ─────────────────────────    │
+│  14:02  notion-mcp  401 unauthorized                         │
+│  09:31  sandbox     pytest timeout (acme/web, recovered)     │
+│                                                              │
+│  [Killswitch: PAUSE CASEY]    [Refresh]  [View audit log]    │
+└──────────────────────────────────────────────────────────────┘</div>
+<p class="muted">
+  Three core deps (Slack/DB/Anthropic) + sandbox runtime + disk, per-connector status with last-success timestamps, sandbox-pool warmth, last successful turn as proof of life, last 24h error roll-up, and a one-click killswitch reachable from the page that surfaces problems. JSON sibling at <code>/admin/health.json</code>.
+</p>
+</div>
+</div>
+
+<!-- ============================================================== -->
+<!-- §6 SECURITY POSTURE -->
+<!-- ============================================================== -->
+
+<h2>6 — Security posture (rewritten for v1)</h2>
+
+<p>
+The May 2026 incident (python + shutdown) was possible because the
+single-tenant bot ran <code>claude</code> as a subprocess with host bash, host
+filesystem, and host env-vars. The self-hosted v1 model splits the attack
+surface into two boundaries: <strong>(a)</strong> the MCP connector layer
+(external reach is OAuth-scoped and write-effect-gated), and
+<strong>(b)</strong> the <code>casey-sandbox</code> container (local execution
+is sandboxed with bash allowlist, path enforcer, env scrub, no network egress,
+no credentials).
+</p>
+
+<p>
+The hardening primitives we designed for the single-tenant bot don't go away
+— they <strong>move inside the sandbox container</strong>. Phase 2 (bash
+allowlist), Phase 3 (path enforcer), Phase 4 (env scrub) are exactly the
+controls the sandbox needs. The threat moves from "host compromise"
+(catastrophic) to "sandbox escape into <code>/workdir</code>"
+(recoverable from git).
+</p>
+
+<table>
+  <thead>
+    <tr><th style="width:28%">Threat</th><th>Single-tenant defense (May 2026)</th><th>RapidusSquad v1 defense (where it lives)</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Arbitrary shell on the host</td>
+      <td>Bash allowlist + restricted Windows user</td>
+      <td class="ok">No host bash exposed. Bash lives <strong>inside the sandbox container</strong>, allowlisted. Compound commands split on shell separators; command-substitution rejected.</td>
+    </tr>
+    <tr>
+      <td>Path traversal to read <code>.env</code> / SSH keys</td>
+      <td>Path enforcer</td>
+      <td class="ok">Sandbox has no host mount. <code>/workdir</code> is the only writable volume; path enforcer rejects resolved paths outside <code>/workdir</code>. Casey-app's secrets are in a separate container the sandbox cannot reach.</td>
+    </tr>
+    <tr>
+      <td>Env-var exfil (Anthropic key, GitHub PAT)</td>
+      <td>Env scrub on subprocess</td>
+      <td class="ok">Sandbox env is whitelisted (<code>PATH</code>, <code>HOME</code>, <code>LANG</code> only). No <code>ANTHROPIC_API_KEY</code>, no GitHub PAT, no Slack token inside the sandbox. All credentials live in casey-app.</td>
+    </tr>
+    <tr>
+      <td>Outbound HTTP exfil (curl evil.com)</td>
+      <td>WebFetch disabled + curl denied</td>
+      <td class="ok">Sandbox container has <strong>no network egress</strong>. Only internal routes: casey-app (for handoff RPC), postgres (for test deps via casey-deps compose profile). DNS resolution to external hosts fails.</td>
+    </tr>
+    <tr>
+      <td>Prompt injection via tool-returned content (e.g., a Notion page)</td>
+      <td>Path enforcer + Bash allowlist (after-the-fact)</td>
+      <td class="ok">Five-layer block: (1) bash allowlist, (2) path enforcer on resolved absolute paths (defeats symlinks / <code>/proc/self/cwd</code>), (3) egress proxy allowlists ONLY <code>api.anthropic.com</code> with cert pin, (4) per-turn outbound-body size cap + rate limit on the proxy (large exfil becomes noisy), (5) secret redaction on tool inputs before Claude sees them + diff scan on outbound patches before push. Anomaly detector flags &gt;1 violation per turn → user-pause + admin DM.</td>
+    </tr>
+    <tr>
+      <td>Compromise of <code>casey-router</code> process (RCE in a route handler, bad npm dep, etc.)</td>
+      <td>—</td>
+      <td class="ok"><strong>Router holds no credentials.</strong> Router/broker split (see §1): the GitHub App private key, OAuth refresh tokens, and Anthropic key live in <code>casey-broker</code> behind a fixed-menu local RPC (<code>openPR</code>, <code>pushBranch</code>, <code>commentOnIssue</code> — not generic GitHub calls). The <code>rapidus/*</code> branch allowlist is enforced server-side in the broker. A compromised router can invoke broker operations the broker considers valid, but cannot read credentials or call GitHub directly. Killswitch (env flag + DB flag) halts the broker independently.</td>
+    </tr>
+    <tr>
+      <td>Compromise of <code>casey-broker</code> process</td>
+      <td>—</td>
+      <td>The broker is the credential vault. Mitigations: minimal attack surface (no HTTP, only local socket RPC from the router), no parsing of external input, short-lived process with credential reload from Docker secrets on restart. Post-v1: GitHub App signing in a KMS / separate service so the private key never sits in process memory.</td>
+    </tr>
+    <tr>
+      <td>Compromised Slack user account (not admin) → PR primitive</td>
+      <td>—</td>
+      <td class="ok"><strong>Channel-scoped trust + per-user quota.</strong> Casey only honors write requests in admin-marked write-enabled channels (set in repo trust mode screen). A daily cap of N PRs/user/repo (default 5). A compromised <code>dev</code> account in <code>#random</code> cannot open PRs at all; in a write-enabled channel they get N PRs before being rate-limited — visible to reviewers, not a PR storm. Admin remains fully trusted (see trust boundary below).</td>
+    </tr>
+    <tr>
+      <td>Force-push to <code>main</code> / rewriting history</td>
+      <td>L3 reaction-confirm</td>
+      <td class="ok">Sandbox can force-push only to <code>rapidus/*</code> branches (Casey's own work). Branch protection on <code>main</code> blocks force-push and direct push regardless of who's trying. Trusted-author mode does not extend to <code>main</code>.</td>
+    </tr>
+    <tr>
+      <td>Casey opens a PR storm or runaway loop</td>
+      <td>—</td>
+      <td class="ok">PR storm cap: ≥3 open Casey PRs in a repo pauses Casey on that repo until one closes. Per-user rate limits per connector. Killswitch from admin UI / env flag instantly pauses Casey globally.</td>
+    </tr>
+    <tr>
+      <td>Sandbox escape into casey-app</td>
+      <td>—</td>
+      <td>Private docker network between casey-app and sandbox; sandbox runs as non-root; user namespaces; CPU / RAM / PID / wall-clock caps; resource ceilings enforce kill on overrun.</td>
+    </tr>
+    <tr>
+      <td>Sandbox escape onto the host</td>
+      <td>—</td>
+      <td>No <code>/var/run/docker.sock</code> mount; no privileged mode; seccomp profile; AppArmor profile (where the host supports it). Adversarial test suite (A1–A20) shipped as a regression target — runs in CI on every release.</td>
+    </tr>
+    <tr>
+      <td><code>/workdir</code> corruption (from inside sandbox)</td>
+      <td>—</td>
+      <td>Recoverable from git. Final patches Casey hands back are verified by lint / typecheck / pytest before push. Customer's own CI is the final gate on the PR.</td>
+    </tr>
+    <tr>
+      <td>Compromised Slack admin</td>
+      <td>Two-admin rule + Slack MFA</td>
+      <td>Same (this threat is the customer's Slack-side concern). Two-admin rule available for high-risk write tools.</td>
+    </tr>
+    <tr>
+      <td>Supply chain (vendored MCP server compromised at pin)</td>
+      <td>—</td>
+      <td>MCP servers pinned at known commits, vendored into the RapidusSquad image. Customer's blast radius is their own host on a single release. Bumps gated on RapidusSquad release CI.</td>
+    </tr>
+    <tr>
+      <td>Tenant data leakage</td>
+      <td><code>company_id</code> filter on every query</td>
+      <td class="ok">Each customer runs their own stack — physical isolation, no shared DB. Leakage impossible by construction.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Trust boundary (admin vs. dev vs. attacker)</h3>
+<p>
+  The customer's <strong>admin</strong> role is <strong>fully trusted</strong>. A malicious internal admin — one who sets every repo to <code>trusted-author</code>, self-approves via <code>/register</code>, or directs Casey to exfiltrate code — is <strong>out of scope</strong>, the same way a compromised root user is out of scope for any DevOps tool the admin controls. Insider-threat scenarios at the admin level are the customer's responsibility to mitigate via their own access controls, MFA, and HR processes. RapidusSquad provides the audit log as evidence after the fact; it does not protect against the admin themselves.
+</p>
+<p>
+  The customer's <strong>dev</strong> role (which includes everyone auto-approved under the "Slack workspace members" policy) is <strong>partially trusted</strong> — explicitly <em>not</em> equivalent to admin. Dev can ask Casey for reads anywhere. Dev can ask Casey for writes only in <strong>write-enabled channels</strong> (set per-channel by the admin in the repo-trust screen), and only up to <strong>N PRs per user per repo per day</strong> (default 5). A compromised dev account therefore cannot turn into a PR-storm primitive: in non-write-enabled channels Casey ignores write requests; in write-enabled channels the daily cap means malicious PRs are visible to reviewers rather than overwhelming them. This is the load-bearing control that keeps the default "auto-approve workspace members" policy safe.
+</p>
+
+<p>
+Net effect: the single-tenant codebase's hardening (bash allowlist, path enforcer, env scrub, restricted user) all <strong>port directly into the sandbox container</strong>, plus a few new layers (network egress isolation, resource caps, AppArmor) that only make sense in a containerized model. The threat model becomes the customer's container security, which is a problem operations teams already know how to solve — and which gets validated weekly by the A1–A20 adversarial test suite shipped with the release.
+</p>
+
+<!-- ============================================================== -->
+<!-- §7 DATA &amp; SECRETS -->
+<!-- ============================================================== -->
+
+<h2>7 — Data &amp; secrets</h2>
+
+<div class="grid2">
+<div class="col card">
+<h4>Data</h4>
+<ul>
+  <li><strong>Postgres on the customer's host.</strong> Tables: <code>casey_users</code>, <code>connectors</code>, <code>approvals</code>, <code>audit_log</code>, <code>sessions</code>, <code>schedules</code>, <code>schedule_runs</code>, <code>sandbox_pool</code>, <code>user_policy</code>, <code>repo_trust</code></li>
+  <li><strong>No multi-tenant schema</strong> — each customer's DB only ever holds their data. Zero leakage by construction.</li>
+  <li><strong>Backups:</strong> <code>casey backup</code> CLI wraps <code>pg_dump</code> for small customers; bigger customers use their existing Postgres backup tooling (pgBackRest, Barman, RDS snapshots). We document both paths.</li>
+  <li><strong>Audit-log retention:</strong> default 90 days, configurable per install. Nightly <code>casey prune</code> cron hard-deletes anything older. Optional JSONL archive-before-prune toggle for compliance-conscious customers. External S3 / SIEM sink post-v1 if a customer asks earlier.</li>
+</ul>
+</div>
+<div class="col card">
+<h4>Secrets</h4>
+<ul>
+  <li><strong>Default: Docker secrets</strong> (<code>/run/secrets/*</code>) — live in <code>casey-broker</code> only. Router process never sees raw credentials; sandbox never sees them either.</li>
+  <li><strong>v1:</strong> <code>SecretsProvider</code> interface ships; only the Docker-secrets adapter is built. Vault / AWS Secrets Manager / Infisical adapters are <strong>post-v1</strong> (slot in via the interface when first paying customer asks).</li>
+  <li>No secret ever leaves the customer's host.</li>
+  <li>Connector OAuth refresh tokens auto-rotate on the standard cadence (refresh happens in the broker).</li>
+  <li>Sandbox container's env is whitelisted (<code>PATH</code>, <code>HOME</code>, <code>LANG</code> only); no inherited secrets.</li>
+</ul>
+</div>
+</div>
+
+<!-- ============================================================== -->
+<!-- §8 SCHEDULED TASKS -->
+<!-- ============================================================== -->
+
+<h2>8 — Scheduled &amp; autonomous tasks</h2>
+<p>
+<code>node-cron</code> inside casey-router. Admin defines schedules via UI; each
+schedule has: cron expression, target Slack channel, prompt template, allowed
+connectors, and an optional approval-required flag. Schedule runs render in the
+canonical Casey UX as system-author turns (see §11). A schedule that hits an L3
+approval and nobody approves within the window simply skips the run and
+notifies the admin.
+</p>
+<p>
+<strong>Missed-run recovery.</strong> Each schedule persists <code>last_fired_at</code>
+in Postgres. On router startup, any schedule whose next-fire time falls in the
+gap between <code>last_fired_at</code> and now is replayed once (with a 1-hour
+ceiling — we don't replay a week of missed digests after a long outage; we
+post a skipped-runs notice instead). This is the v1 HA story: it handles
+restarts and short outages without requiring a real job queue. Post-v1, if
+customers run multiple replicas of casey-router, swap node-cron for
+<code>pg-boss</code> (Postgres-backed queue) so cron entries are picked up
+exactly once across replicas.
+</p>
+
+<div class="card">
+<h3>Schedule definition (admin UI → DB)</h3>
+<pre>{
+  "name": "Payments digest",
+  "cron": "0 9 * * 1-5",
+  "timezone": "America/New_York",
+  "channel": "C0_STANDUP",
+  "prompt": "Summarize yesterday's progress on the payments-release label across Linear and GitHub, highlight stale items and new P1s.",
+  "allowed_connectors": ["linear", "github"],
+  "require_approval": false,
+  "on_skip": "dm_admin",
+  "audit_tag": "cron:payments-digest",
+  "enabled": true
+}</pre>
+</div>
+
+<!-- ============================================================== -->
+<!-- §9 COMPUTE LAYER -->
+<!-- ============================================================== -->
+
+<h2>9 — Compute layer (where Claude actually runs code)</h2>
+
+<p>
+MCP connectors give Claude <em>API access</em> — read a file, open a PR, create
+an issue. They do <strong>not</strong> give Claude a place to <em>execute</em>
+code. If a ticket is "fix the failing test in <code>auth.py</code>," Claude can
+read the file and propose a diff, but it can't run <code>pytest</code> to know
+whether the diff works before opening the PR. The three strategies below differ
+on <strong>where the sandbox lives</strong>, and therefore on <strong>how tight
+Claude's edit→test loop is</strong>.
+</p>
+
+<h3>Strategy A — CI-driven (degraded-mode fallback)</h3>
+<p><strong>Where compute lives:</strong> the customer's existing CI (GitHub Actions).</p>
+<p><strong>Turn:</strong> Claude reads via <code>github-mcp</code>, pushes a patch to <code>rapidus/ticket-123</code>, the push triggers <code>ci.yml</code>, Claude polls the run, reads logs on failure, iterates by pushing more commits. Green → open PR.</p>
+<p><strong>Role in v1:</strong> <strong>weeks 1–3 of v1</strong> A is the only compute path (lets the foundation slice ship while sandbox B is being built). <strong>From week 4 onward A is invisible degraded-mode</strong> — Casey uses B by default; when B can't run (sandbox image pull fails, disk pressure forces eviction, sandbox crashes mid-turn), the router transparently falls back to A for that turn and surfaces the downgrade in Slack ("Sandbox unavailable — iterating via CI; may take a few minutes") and on the health page ("Sandbox: degraded — running on CI fallback").</p>
+<p><strong>Circuit breaker.</strong> If a repo's sandbox fails three turns in a row, A becomes sticky for that repo for one hour — we don't waste 30s attempting a doomed sandbox start before every fallback. Admin can clear the circuit manually from the health page.</p>
+<p><strong>Pros:</strong> zero new infra; same environment as production tests; every iteration is an auditable commit.</p>
+<p><strong>Cons:</strong> 3–10 min per iteration; noisy git history; burns the customer's CI minutes. Acceptable as a fallback; not acceptable as the default after week 3.</p>
+
+<h3>Strategy B — Bundled sandbox container (the v1 default)</h3>
+<p><strong>Where compute lives:</strong> a second hardened Linux container shipped inside the Docker image, with the repo cloned in and the customer's full toolchain installed. The sandbox runs the entire dev-team-hybrid pipeline — PM, dev, test, QA (Playwright + headless Chromium against a real dev server + Postgres), code-review — inside the customer's perimeter.</p>
+<p><strong>Where Claude itself runs (decided):</strong> <strong>inside the sandbox</strong>. The <code>claude</code> CLI process spawns in the sandbox container so the edit→test loop has no inter-container RPC. The cost of this choice is that the sandbox needs <em>some</em> way to reach <code>api.anthropic.com</code> — handled by an egress proxy below.</p>
+<p><strong>Turn:</strong> Claude (running inside the sandbox) edits files in <code>/workdir</code> and runs <code>pytest -k auth</code> directly — 8 seconds. Iterates locally. When the patch is final, Claude hands it back to casey-router via the sandbox RPC; the router asks casey-broker to push and open the PR. The customer's real CI runs as a final check on the PR.</p>
+<p><strong>What B speeds up:</strong> the <em>dev/test inner loop</em> (edit → run tests → edit) goes from minutes to seconds. The QA stage is inherently browser-bound and takes about the same time as running QA on a laptop today — Strategy B doesn't make QA faster, it just makes it possible without sending the customer's code to a third party.</p>
+
+<p><strong>Sandbox shape (decided):</strong></p>
+<ul>
+  <li><strong>One sandbox per repo, lazy-started with persistent volume.</strong> No warm pool. Cold start (clone + <code>npm ci</code> + <code>playwright install</code>) is paid once per repo on the first request; the resulting <code>/workdir</code> lives on a docker volume keyed by repo. Subsequent requests spin up a fresh container and re-attach the existing volume — 5–10 seconds, not minutes. TTL eviction on the <em>volume</em> (default 14 days untouched → delete + reclaim disk). Casey posts a one-time "Setting up sandbox for <code>acme/api</code>… ~45s" message on first touch per repo so the wait is expected.</li>
+  <li><strong>Egress proxy: only <code>api.anthropic.com</code>, cert-pinned.</strong> A small sidecar container sits between the sandbox and the internet. Hostname allowlist + TLS cert pin (rejects redirects via DNS rewriting). Every outbound request body is written to the audit log before forwarding. Per-turn body-size cap + rate limit (large exfil becomes noisy + obvious). DNS resolution to any other host fails closed.</li>
+  <li><strong>Secret redaction on tool inputs.</strong> Before the sandbox hands Claude a tool result (a file read, an MCP response), a redactor scrubs anything matching credential shapes (API key formats, AWS access keys, PEM headers, JWTs). Claude can't relay what it never sees.</li>
+  <li><strong>Diff scan before push.</strong> Casey-router scans the final patch for credential-shaped strings before asking casey-broker to push. Blocks the push and DMs the admin if anything trips.</li>
+  <li><strong>Runs the whole dev-team-hybrid pipeline.</strong> Sandbox image is ~2–3 GB with Chromium — closer to "dev environment in a box" than "test runner in a box." Per-language overlays (<code>python-3.12</code>, <code>node-20</code>) cover ~80% of customers; <code>fullstack</code> combo image and <code>.casey/sandbox.Dockerfile</code> escape hatch are post-v1.</li>
+  <li><strong>App dependencies via a <code>casey-deps</code> Compose profile</strong> in the customer's <code>docker-compose.yml</code> — Postgres, Redis, etc. brought up on a private network the sandbox can reach. No docker-in-docker, no socket mount.</li>
+  <li><strong>Push credentials live in casey-broker, not the sandbox.</strong> Sandbox holds the repo clone but no GitHub PAT, no Slack token, no Postgres URL. Even on sandbox escape, attacker can corrupt <code>/workdir</code> (recoverable from git) but cannot push or call connectors — the broker is the only path to GitHub and it only honors the fixed-menu RPC.</li>
+</ul>
+
+<p><strong>PR gating (decided): trusted-author mode by default, with per-repo overrides.</strong>
+Casey opens real PRs directly (not drafts). The customer's CI + branch protection rules + required human review are what protect <code>main</code> — not a Slack 👍 in the hot path. Per-repo config supports three modes:</p>
+<table>
+  <thead><tr><th>Mode</th><th>What Casey can do</th><th>When to use</th></tr></thead>
+  <tbody>
+    <tr><td><code>trusted-author</code></td><td>Open + force-push to own <code>rapidus/*</code> branches; open PRs directly; cannot merge</td><td>Default — most product/app repos</td></tr>
+    <tr><td><code>gated</code></td><td>Same as above but PR open requires admin 👍 in Slack first</td><td>Money paths, billing, auth, anything regulated</td></tr>
+    <tr><td><code>read-only</code></td><td>Read repo, post analysis to Slack, no writes at all</td><td>Infrastructure, secrets repos, anything Casey should never touch</td></tr>
+  </tbody>
+</table>
+<p><strong>Required guardrails for trusted-author mode:</strong> branch protection on <code>main</code> with required reviews (≥1 human), required CI green, no force-push, no admin bypass; checked at connector-setup time and re-checked daily. PR storm cap: ≥3 open Casey PRs in a repo pauses Casey on that repo until one closes.</p>
+<p><strong>Where in the roadmap:</strong> <strong>weeks 4–12 of v1</strong>. Becomes the only first-class compute path; A persists as invisible degraded-mode (see above).</p>
+
+<h3>Strategy C — Remote / cloud sandbox (third-party compute)</h3>
+<p><strong>Where compute lives:</strong> a managed external sandbox service (E2B, BrowserBase, Daytona, Modal, etc.).</p>
+<p><strong>Cons:</strong> <strong>breaks the self-hosted promise</strong> — source code leaves the customer's perimeter (deal-breaker for regulated verticals); vendor lock-in; per-minute billing; two systems to debug on failure.</p>
+<p><strong>Where in the roadmap:</strong> <strong>post-v1 opt-in tier</strong> for customers who explicitly need browser automation or burst parallelism and accept data egress.</p>
+
+<h3>Comparison</h3>
+<table>
+  <thead>
+    <tr><th>Dimension</th><th>A — CI-driven</th><th>B — bundled sandbox</th><th>C — remote sandbox</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Dev/test loop time</td><td>minutes (CI per push)</td><td>seconds (local in-sandbox)</td><td>seconds–tens of seconds</td></tr>
+    <tr><td>QA loop time</td><td>minutes (cold Playwright in CI runner)</td><td>same as running QA on a laptop today</td><td>same as B; vendor browser if used</td></tr>
+    <tr><td>Engineering cost to ship</td><td>low</td><td>medium</td><td>low–medium</td></tr>
+    <tr><td>Ongoing infra cost</td><td>$0 (customer's CI)</td><td>small (RAM/disk on host)</td><td>per-minute vendor billing</td></tr>
+    <tr><td>Stays in customer perimeter?</td><td>yes</td><td>yes</td><td><strong>no</strong></td></tr>
+    <tr><td>Exploratory / one-off work</td><td>no</td><td>yes</td><td>yes</td></tr>
+    <tr><td>Auditability</td><td>excellent</td><td>good</td><td>medium</td></tr>
+    <tr><td>Failure debugging surface</td><td>1 system</td><td>1 system</td><td>2 systems</td></tr>
+    <tr><td>Slot in v1 build</td><td>weeks 1–3 only as primary; weeks 4–12 as degraded-mode fallback</td><td>weeks 4–12 (only first-class default)</td><td>post-v1</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================== -->
+<!-- §10 ADMIN INSTALL SCREENS -->
+<!-- ============================================================== -->
+
+<h2>10 — Demo: admin install screens</h2>
+
+<div class="card">
+<h3>First-run setup (<code>/setup</code>)</h3>
+<div class="mock">┌───────────────────────────────────────────────────────────────┐
+│  Welcome to RapidusSquad                                       │
+│                                                                │
+│  RapidusSquad is installed but needs a bootstrap admin.        │
+│                                                                │
+│  Setup token (printed to docker logs):                         │
+│  ┌──────────────────────────────────────────────────┐         │
+│  │ setup_4xz9k_2f1d7e                                │         │
+│  └──────────────────────────────────────────────────┘         │
+│                                                                │
+│  Slack user ID of first admin                                  │
+│  (Slack → your profile → More → Copy member ID)                │
+│  ┌──────────────────────────────────────────────────┐         │
+│  │ U_HASSAN_ACME                                     │         │
+│  └──────────────────────────────────────────────────┘         │
+│                                                                │
+│              [ Create admin and continue → ]                   │
+└───────────────────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="card">
+<h3>GitHub App manifest flow</h3>
+<div class="mock">┌───────────────────────────────────────────────────────────────┐
+│  Connect GitHub                                                │
+│                                                                │
+│  RapidusSquad uses GitHub through a GitHub App you create      │
+│  in your own org. We never share a GitHub App between          │
+│  customers — your install, your secrets, your control.         │
+│                                                                │
+│  ◉ Create new GitHub App (recommended, ~10 min)                │
+│  ○ I already have a GitHub App for RapidusSquad                │
+│                                                                │
+│  Capabilities the manifest will request:                       │
+│  ✓ Contents — read &amp; write                                    │
+│  ✓ Pull requests — read &amp; write                               │
+│  ✓ Issues — read &amp; write                                      │
+│  ✗ Workflows — no access                                       │
+│  ✗ Administration — no access                                  │
+│                                                                │
+│              [ Open GitHub manifest flow → ]                   │
+└───────────────────────────────────────────────────────────────┘</div>
+<p class="muted">
+Each customer creates their own GitHub App from a manifest we generate. We never own or proxy a shared GitHub App — there is no single party in the trust chain. The app, its client secret, and its installation tokens live entirely in the customer's GitHub org.
+</p>
+</div>
+
+<div class="card">
+<h3>Repository trust modes</h3>
+<div class="mock">┌───────────────────────────────────────────────────────────────┐
+│  Step 5 of 8 — Repository trust modes                          │
+│                                                                │
+│  Repo                  Mode              Branch protection     │
+│  ──────────────────────────────────────────────────────────    │
+│  acme/web              trusted-author ▾  ● verified            │
+│  acme/api              trusted-author ▾  ● verified            │
+│  acme/billing          gated ▾           ● verified            │
+│  acme/auth-service     gated ▾           ● verified            │
+│  acme/infrastructure   read-only ▾       —                     │
+│                                                                │
+│  Branch protection re-check: daily                             │
+│              [ Save and continue → ]                           │
+└───────────────────────────────────────────────────────────────┘</div>
+</div>
+
+<div class="card">
+<h3>User onboarding policy</h3>
+<div class="mock">┌───────────────────────────────────────────────────────────────┐
+│  Step 6 of 8 — User onboarding policy                          │
+│                                                                │
+│  ◉ Anyone in your Slack workspace (recommended)                │
+│  ○ Only people with an @acme.com email                         │
+│  ○ Manual approval only (I'll approve each request)            │
+│                                                                │
+│  In all modes, /register works as a fallback.                  │
+│  Default role for auto-approved users: dev                     │
+│                                                                │
+│              [ Save and continue → ]                           │
+└───────────────────────────────────────────────────────────────┘</div>
+</div>
+
+<!-- ============================================================== -->
+<!-- §11 DEMO & UX SPEC (NEW) -->
+<!-- ============================================================== -->
+
+<h2>11 — Demo &amp; UX spec for the build team</h2>
+
+<p>
+The build team should treat the following two artifacts as the canonical
+visual references for v1. Both live alongside this plan in the repo.
+</p>
+
+<div class="card">
+<h3>The canonical Casey-in-Slack UX</h3>
+<p>
+<strong>Spec source:</strong> <code>ai-employee/docs/loading-ux-cursor.html</code> — interactive Cursor-style pattern.
+</p>
+<p>
+Every Casey response renders through one consistent state machine:
+<code>idle → working → complete | cancelled | failed</code>. Working state
+shows a TodoWrite checklist that updates as work progresses. Completion
+collapses to a labeled summary card (Summary / QA report / Answer / Error)
+with action buttons (View PR, View logs) and an overflow menu (Follow-up,
+Re-run, Request ID, Feedback, Delete). Cancel mid-run is supported. System
+turns (scheduled cron) use the same shape with audit_tag in the meta line.
+</p>
+<p>
+Two sibling demonstrations of this UX in context:
+</p>
+<ul>
+  <li><code>ai-employee/demo/08-casey-ux.html</code> — interactive, four scenarios (bugfix / QA / lookup / failure), every button wired</li>
+  <li><code>ai-employee/demo/index2.html</code> — full tour rendering Chapters 3, 4, 6, 7 using the canonical UX</li>
+</ul>
+<p>
+The FE agent should build this UX first. The streaming-message pattern used in the original demo (<code>ai-employee/demo/index.html</code>) is reserved for a "sandbox-visible" power-user mode (toggle in admin UI, off by default for v1).
+</p>
+</div>
+
+<div class="card">
+<h3>The product mock tour</h3>
+<p>
+<strong>Location:</strong> <code>ai-employee/demo/</code> — two editions, both useful.
+</p>
+<table>
+  <thead><tr><th>Edition</th><th>Path</th><th>What it shows</th></tr></thead>
+  <tbody>
+    <tr><td>Edition 1 — sandbox-visible (streaming)</td><td><code>demo/index.html</code></td><td>Original tour. Split-pane chapters (Slack + sandbox terminal). Best for "show what's actually happening behind the scenes."</td></tr>
+    <tr><td>Edition 2 — canonical production UX</td><td><code>demo/index2.html</code></td><td>Polished tour. Canonical Casey UX on the Slack side. Best for "this is what users will see."</td></tr>
+    <tr><td>30-second elevator</td><td><code>demo/elevator.html</code></td><td>Auto-plays, streams the sandbox-fix scene. Opening hook for either edition.</td></tr>
+  </tbody>
+</table>
+<p>
+Each chapter pair covers a frozen moment in the life of an Acme team after install: Day 1 (install + first user), Day 2 (cross-tool read, sandbox fix, admin UI), Day 7 (scheduled digest), Day 30 (incident response). Use these as the spec for what each Slack interaction should look and feel like in v1.
+</p>
+</div>
+
+<!-- ============================================================== -->
+<!-- §12 ROADMAP -->
+<!-- ============================================================== -->
+
+<h2>12 — Roadmap</h2>
+
+<p class="muted" style="margin-bottom:24px">
+  <strong>Build path:</strong> skipping MVP. Going straight to v1 (~12 weeks)
+  with a 2-person agent team (1 BE + 1 FE) and one identified beta partner.
+  The foundation slice below is the first 3 weeks of v1, not a separate
+  shippable release.
+</p>
+
+<div class="card">
+<h3>Foundation slice <span class="pill mvp">weeks 1–3 of v1</span></h3>
+<ul>
+  <li>Docker image + docker-compose + Slack app manifest + GitHub App manifest flow</li>
+  <li>Per-customer install flow + bootstrap admin page + user-policy picker + repo-trust-mode picker</li>
+  <li>Admin UI: access requests, audit log, connectors list, user-policy card, repositories &amp; trust modes, system-health page + JSON endpoint</li>
+  <li>Built-in connectors (vendored): slack-mcp, github-mcp (per-customer GitHub App), linear-mcp, notion-mcp at pinned commits</li>
+  <li><code>/register</code> + Postgres LISTEN/NOTIFY approval flow + auto-approve policies</li>
+  <li><strong>Channel-scoped trust + per-user PR quota</strong> (default 5 PRs/user/repo/day) — keeps the default "auto-approve workspace members" policy safe by constraining the dev surface</li>
+  <li>L3 reaction-confirm on write-effect tools that aren't covered by per-repo trust mode (Notion writes, Linear creates, cross-channel Slack posts)</li>
+  <li>Compute: <strong>Strategy A only</strong> (push to <code>rapidus/*</code> branch → trigger customer's CI → poll → iterate). Becomes degraded-mode fallback once Strategy B lands in week 4+.</li>
+  <li>Killswitch (env + DB flag), basic audit log (append-only JSONL + DB)</li>
+  <li><strong>Postgres role matrix</strong> in v1 migrations: <code>casey_bot</code> (least-privilege, SELECT-mostly, INSERT-only on <code>audit_log</code>) vs <code>casey_admin</code> (UI writes). Explicit GRANT/REVOKE per table — auditable artifact, not a sentence in a doc.</li>
+  <li><strong>node-cron with <code>last_fired_at</code> persistence</strong> for missed-run replay across restarts</li>
+  <li><strong>Threat-row docs for <code>casey-router</code> + <code>casey-broker</code> compromise</strong> in §6 (cheap version of the router/broker split — even before the full process split lands)</li>
+  <li>Documented backup procedure + <code>casey backup</code> CLI wrapper</li>
+  <li><code>LICENSE</code> (AGPL-3.0) + <code>COMMERCIAL_LICENSE.md</code> + <strong><code>NOTICE</code> file auto-generated in release CI</strong></li>
+  <li>One-time license audit before v1 ships (flag any GPL/AGPL deps for conscious keep-or-swap decision)</li>
+  <li>Canonical Casey UX rendering (per §11) shipped from day one</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Rest of v1 <span class="pill v1">weeks 4–12 (~12 weeks total)</span></h3>
+<ul>
+  <li><strong>Compute: Strategy B sandbox</strong> — bundled hardened container, one per repo, <strong>lazy-started with persistent <code>/workdir</code> volume</strong> (no warm pool — first touch per repo is slow, subsequent touches are 5–10s)</li>
+  <li><strong>Claude CLI runs inside the sandbox</strong> behind a cert-pinned egress proxy that allowlists only <code>api.anthropic.com</code>, with audit-logged bodies + per-turn size cap + rate limit</li>
+  <li><strong>Layered prompt-injection defenses:</strong> secret redaction on tool inputs to Claude + diff scan on outbound patches before broker push</li>
+  <li><strong>casey-app process split:</strong> router (Slack + Claude orchestration, no creds) + broker (credentials, fixed-menu RPC: <code>openPR</code>, <code>pushBranch</code>, <code>commentOnIssue</code>). Branch allowlist enforced server-side in broker, not in caller code.</li>
+  <li>Pre-built sandbox base images published to Docker Hub: <code>rapidussquad/sandbox:python-3.12</code>, <code>:node-20</code> (no <code>:fullstack</code> — post-v1)</li>
+  <li>Per-repo trust modes (<code>trusted-author</code> / <code>gated</code> / <code>read-only</code>) enforced at the broker boundary; branch-protection assertions on connector setup + daily re-check</li>
+  <li>PR storm cap (≥3 open Casey PRs in a repo pauses the repo) — second line behind per-user quota</li>
+  <li>Adversarial test suite (A1–A20 escape attempts) shipped as a regression target — runs in release CI</li>
+  <li><strong>Hosted SSE MCP smoke tests</strong> in release CI + nightly cron (catches Notion etc. breakage before customers)</li>
+  <li>Audit-log retention: nightly <code>casey prune</code> cron, default 90 days, configurable (JSONL archive-before-prune is post-v1)</li>
+  <li>Scheduler UI + skipped-run notifications (cron persistence already shipped in foundation slice)</li>
+  <li><strong>A as degraded-mode fallback with circuit breaker</strong> — auto-fallback to A when sandbox unhealthy; sticky for 1h after 3 consecutive failures per repo; visible in Slack + health page</li>
+  <li>Pre-flight context in approval messages (branch, base, diff stats)</li>
+  <li><code>SecretsProvider</code> interface (Docker secrets adapter only at v1; Vault / AWS / Infisical adapters are post-v1)</li>
+  <li>Rate limit per user, per connector, per minute / per day</li>
+  <li>Update-available banner in admin UI</li>
+  <li>Sandbox-visible "power mode" toggle (renders streaming-pattern UX, see <code>demo/index.html</code>)</li>
+</ul>
+</div>
+
+<div class="card">
+<h3>Cut from v1 (post-v1 unless a paying customer asks) <span class="pill v2">deferred</span></h3>
+<ul>
+  <li><strong>Built-in Vault / AWS Secrets Manager / Infisical adapters</strong> — interface ships in v1; adapters land when customer #N asks. Buys back ~1 week.</li>
+  <li><strong><code>rapidussquad/sandbox:fullstack</code> combo image</strong> — most customers are one language; fullstack customers run two sandboxes in v1. Buys back ~3 days.</li>
+  <li><strong>JSONL archive-before-prune toggle</strong> on the audit log — 1-in-20 feature. Defer. Buys back ~2 days.</li>
+  <li><strong>Two-admin rule on high-risk tools</strong> — no customer has asked; branch protection + required PR review already cover the realistic threat. Add when a regulated customer requires a documented two-person rule. Buys back ~3 days.</li>
+  <li><strong>Custom MCP server via URL paste</strong> — support tarpit (every customer's custom server breaks differently). Vendored set of 4 covers 80%+ at v1. Buys back ~1 week.</li>
+  <li><strong>Sandbox container warm pool</strong> — replaced by lazy containers + persistent volume. Add only if measured cold-start is a real customer problem.</li>
+  <li><strong>Multi-replica HA for casey-router</strong> — single replica is fine for v1. <code>last_fired_at</code> covers restarts; <code>pg-boss</code>-backed scheduler swap is the post-v1 path for multi-replica.</li>
+</ul>
+<p class="muted" style="margin-top:8px">Net effect: ~3 weeks of work moved off the v1 plate, ~1 week added back for the new foundation items (role matrix, cron persistence, NOTICE, channel-scoped trust, per-user quota, threat-row docs). The ~2-week net surplus goes to actually finishing sandbox hardening — the thing that becomes an incident if half-done.</p>
+</div>
+
+<div class="card">
+<h3>Post-v1 <span class="pill v2">+6 months</span></h3>
+<ul>
+  <li>Managed-tier option: same code, hosted by us, Clerk-based auth on the admin UI</li>
+  <li>Per-channel personas + memory</li>
+  <li>Cost dashboard (Anthropic + connector API spend)</li>
+  <li>Distributed Slack app (one-click install) for the managed tier</li>
+  <li>SOC 2 readiness for the managed tier</li>
+  <li>SSO / SCIM for the admin UI (managed tier)</li>
+  <li>External audit-log sink (S3 / SIEM / Splunk) — earlier if a customer asks</li>
+  <li>Custom sandbox image support (<code>.casey/sandbox.Dockerfile</code>) for non-standard toolchains</li>
+  <li>Multi-Slack-workspace per deployment (agency-tier scenario)</li>
+  <li>Strategy C (remote / cloud sandbox) as an opt-in compute tier</li>
+</ul>
+</div>
+
+<!-- ============================================================== -->
+<!-- §13 OPEN QUESTIONS &amp; DECIDED -->
+<!-- ============================================================== -->
+
+<h2>13 — Open questions &amp; decided</h2>
+
+<h3>Still open</h3>
+<ol>
+  <li><strong>Telemetry.</strong> Anonymous opt-in usage telemetry (version count, connector counts, error rates)? Useful for product. <em>Defer until we wish we had data.</em></li>
+  <li><strong>Pricing.</strong> Free + paid features vs fully OSS with paid managed tier later? <em>Defer until first paying customer.</em></li>
+  <li><strong>Support model.</strong> When customer #3+ DMs at 2am, what's the contract? <em>Defer — for the beta partner it's just informal Slack DMs.</em></li>
+</ol>
+
+<h3>Decided</h3>
+<ul>
+  <li><strong>Build path:</strong> skip MVP, build v1 directly. ~12 weeks with a 2-person agent team (1 BE + 1 FE). Beta partner identified. Reference customer stack ready.</li>
+  <li><strong>Product name:</strong> <em>RapidusSquad</em>. <em>Casey</em> is the bot's Slack identity.</li>
+  <li><strong>License:</strong> AGPL-3.0 + commercial exception. Small shops use AGPL free; enterprises whose legal teams reject AGPL pay for a commercial license. Same model as GitLab, MongoDB (pre-2018), Sentry, Mattermost.</li>
+  <li><strong>NOTICE file:</strong> auto-generated from vendored deps via license-checker; lives in repo root + Docker image; regenerated in release CI (build fails if stale). One-time license audit before v1 ships.</li>
+  <li><strong>Anthropic billing:</strong> customer brings their own Anthropic API key. No usage proxying through us; no shared liability for spend.</li>
+  <li><strong>Where Claude runs (v2.1):</strong> <strong>inside the sandbox container</strong>, behind a sidecar egress proxy that allowlists ONLY <code>api.anthropic.com</code> (cert-pinned, audit-logged, per-turn body cap + rate limit). Trades a single narrow network exception for a tight in-container edit→test loop. Layered with secret redaction on tool inputs + diff scan on outbound patches.</li>
+  <li><strong>casey-app process split (v2.1):</strong> router (Slack + Claude orchestration, no creds) + broker (GitHub App key, OAuth refresh tokens, fixed-menu RPC). Branch allowlist (<code>rapidus/*</code>) enforced server-side in broker. Threat-row docs land in weeks 1–3; full process split lands in weeks 4–12.</li>
+  <li><strong>GitHub App ownership:</strong> per-customer GitHub Apps via manifest flow. We never own or proxy a shared GitHub App.</li>
+  <li><strong>Sandbox toolchain (v1):</strong> pre-built per-language base images (<code>python-3.12</code>, <code>node-20</code>) cover ~80% of customers. Custom <code>.casey/sandbox.Dockerfile</code> escape hatch and <code>:fullstack</code> combo image are post-v1.</li>
+  <li><strong>Sandbox lifecycle (v2.1):</strong> lazy-started, one per repo, with persistent <code>/workdir</code> docker volume. No warm pool — first touch per repo pays clone + dependency install (~30–60s with a visible "setting up" message), subsequent touches re-attach the volume in 5–10s. TTL eviction on the volume (default 14 days).</li>
+  <li><strong>MCP server pinning:</strong> vendor <code>github-mcp</code>, <code>linear-mcp</code>, <code>slack-mcp</code> at known commits. Hosted SSE MCPs (<code>notion-mcp</code>) cannot be vendored — pinned by URL + protocol version <strong>and</strong> covered by release-CI + nightly smoke tests that assert response shape.</li>
+  <li><strong>Audit-log retention:</strong> default 90 days, configurable per install. Hard delete on prune (<code>casey prune</code> nightly cron). External S3 / SIEM sink and JSONL archive-before-prune toggle are post-v1.</li>
+  <li><strong>Postgres role matrix (v2.1):</strong> two database roles — <code>casey_bot</code> (SELECT-mostly, INSERT-only on <code>audit_log</code>, no UPDATE on <code>repo_trust</code> / <code>connectors</code> / <code>user_policy</code>) vs <code>casey_admin</code> (used by the admin UI for writes). Enforced via GRANT/REVOKE in v1 migrations.</li>
+  <li><strong>Backup / DR:</strong> documented Postgres backup procedure + <code>casey backup</code> CLI wrapper.</li>
+  <li><strong>Scheduler HA (v2.1):</strong> <code>node-cron</code> with <code>last_fired_at</code> persisted in Postgres; missed runs (within a 1h ceiling) replay on router startup. Multi-replica via <code>pg-boss</code> is post-v1.</li>
+  <li><strong>User onboarding policy:</strong> three modes (auto-approve workspace / auto-approve domain / manual only). Default: auto-approve workspace members. <code>/register</code> always works as a manual fallback.</li>
+  <li><strong>PR gating:</strong> trusted-author mode by default, with per-repo overrides (<code>trusted-author</code> / <code>gated</code> / <code>read-only</code>). Branch protection on <code>main</code> + required human review are the actual merge gate.</li>
+  <li><strong>Channel-scoped trust + per-user quota (v2.1):</strong> Casey only honors write requests in admin-marked write-enabled channels; daily cap of 5 PRs/user/repo by default. Keeps the default "auto-approve workspace members" policy safe by separating the <code>dev</code> attack surface from the <code>admin</code> trust.</li>
+  <li><strong>Insider-threat boundary:</strong> customer's <em>admin</em> role is fully trusted; <em>dev</em> role is partially trusted (constrained by channel + quota); insider-threat scenarios at the admin level are out of scope (see §6 trust boundary).</li>
+  <li><strong>Compute strategies (v2.1):</strong> Strategy B is the only first-class compute path from week 4 onward. Strategy A persists as invisible degraded-mode fallback (auto-engaged when sandbox is unhealthy, with circuit breaker + Slack/health-page surfacing). Customers don't pick A. Strategy C (remote sandbox) remains post-v1.</li>
+  <li><strong>SecretsProvider (v2.1):</strong> interface ships in v1, only the Docker-secrets adapter is built. Vault / AWS Secrets Manager / Infisical adapters are post-v1 (land when a paying customer asks).</li>
+  <li><strong>Two-admin rule (v2.1):</strong> <strong>dropped from v1.</strong> Branch protection + required reviewers + per-user quota already cover the realistic threat. Add when a regulated customer requires a documented two-person rule.</li>
+  <li><strong>Custom MCP server via URL paste (v2.1):</strong> dropped from v1 (support tarpit). Vendored set of 4 covers v1 needs.</li>
+  <li><strong>Deployment scope:</strong> one RapidusSquad install serves one Slack workspace. Multi-workspace is post-v1.</li>
+  <li><strong>Updates:</strong> documented <code>docker compose pull &amp;&amp; docker compose up -d</code> procedure. No auto-update at v1.</li>
+  <li><strong>Localization:</strong> English only for v1.</li>
+  <li><strong>UX spec:</strong> canonical Casey UX is <code>loading-ux-cursor.html</code> (interactive demo at <code>demo/08-casey-ux.html</code>). FE agent builds this first; streaming-pattern is a post-v1 power-user toggle.</li>
+  <li><strong>Visual reference:</strong> two-edition product mock at <code>ai-employee/demo/</code> (Edition 1: <code>index.html</code>; Edition 2: <code>index2.html</code>; elevator: <code>elevator.html</code>).</li>
+</ul>
+
+<p class="muted" style="margin-top:32px">
+The honest read: this pivot is the right shape. v1 brings host-bash back, but
+inside a hardened per-repo sandbox that holds no credentials — credentials
+live in <code>casey-broker</code> behind a fixed-menu RPC and only act after
+Casey hands back a finished patch. Claude itself runs inside the sandbox, with
+a single cert-pinned, audit-logged, rate-limited egress to
+<code>api.anthropic.com</code> — narrow enough that prompt-injection exfil is
+both noisy and detectable. The default "auto-approve Slack workspace members"
+policy is safe by construction because the <code>dev</code> surface is
+constrained by channel-scoped trust + per-user quota, not by trusting every
+workspace member with admin-equivalent reach. Strategy A persists as invisible
+degraded-mode so a flaky sandbox slows Casey rather than breaking it. The
+operations burden still moves to the customer, which they expect and price
+in. It positions RapidusSquad against Cursor / Sweep / Devin not on raw
+capability but on data sovereignty and self-hostability — which is what
+enterprise security teams actually want. Twelve weeks to v1 with a 2-person
+agent team and one beta partner; the existing single-tenant codebase is
+reusable for ~60% of it (slack-handler, claude-process, db, audit log,
+hardening primitives that now live inside the sandbox).
+</p>
+
+</main>
+</body>
+</html>

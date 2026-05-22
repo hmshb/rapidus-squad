@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter 1 — Acme installs RapidusSquad</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #07090f; --bg-2: #0d1320; --panel: #111a2e; --panel-2: #0e1730;
+    --ink: #e7ecf5; --ink-2: #c3cee0; --mute: #7d8ba8;
+    --line: #1c2541; --line-2: #233055;
+    --accent: #79c0ff; --accent-2: #b794ff;
+    --ok: #6ee7a8; --warn: #f5b461; --bad: #f47878;
+    --term-bg: #050810; --term-line: #0e1830;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); min-height: 100vh;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:
+      radial-gradient(900px 500px at 80% -10%, rgba(121,192,255,0.08), transparent 60%),
+      var(--bg);
+  }
+  .top {
+    max-width: 1100px; margin: 0 auto; padding: 28px 32px 0;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; color: var(--mute);
+  }
+  .top a { color: var(--accent); text-decoration: none; }
+  .top .nav a { margin-left: 14px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 32px 96px; }
+  h1 { font-size: 32px; margin: 18px 0 6px; letter-spacing: -0.01em; }
+  .lede { color: var(--ink-2); max-width: 760px; margin: 0 0 30px; }
+  .who { color: var(--mute); font-size: 13px; margin-bottom: 36px; }
+  .who strong { color: var(--ink-2); }
+
+  .step {
+    display: grid; grid-template-columns: 56px 1fr; gap: 22px;
+    margin: 38px 0; position: relative;
+  }
+  .step .n {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--panel); border: 1px solid var(--line-2);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: var(--accent); font-size: 14px;
+  }
+  .step:not(:last-child)::before {
+    content: ""; position: absolute; left: 20px; top: 52px; bottom: -34px;
+    width: 1px; background: var(--line);
+  }
+  .step h2 { font-size: 19px; margin: 6px 0 4px; letter-spacing: -0.01em; }
+  .step .time { color: var(--mute); font-size: 12.5px; }
+  .step .body { margin-top: 12px; }
+
+  .term {
+    background: var(--term-bg);
+    border: 1px solid var(--term-line);
+    border-radius: 10px;
+    padding: 0;
+    overflow: hidden;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.65;
+  }
+  .term .bar {
+    background: #0b1226;
+    border-bottom: 1px solid var(--term-line);
+    padding: 7px 14px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--mute);
+  }
+  .term .bar .dot { width: 10px; height: 10px; border-radius: 50%; background: #1f2a44; }
+  .term .bar .dot.red { background: #f47878; }
+  .term .bar .dot.yel { background: #f5b461; }
+  .term .bar .dot.grn { background: #6ee7a8; }
+  .term .bar span.path { margin-left: auto; color: var(--mute); font-size: 11.5px; }
+  .term pre {
+    margin: 0; padding: 14px 16px; white-space: pre-wrap; color: #cfd8ee;
+  }
+  .term .prompt { color: var(--accent-2); }
+  .term .cmd { color: var(--ink); }
+  .term .ok { color: var(--ok); }
+  .term .mute { color: var(--mute); }
+  .term .warn { color: var(--warn); }
+  .term .comment { color: var(--mute); font-style: italic; }
+
+  .browser {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .browser .chrome {
+    background: var(--panel-2);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12.5px; color: var(--mute);
+  }
+  .browser .chrome .dots { display: flex; gap: 6px; }
+  .browser .chrome .dots i { width: 10px; height: 10px; border-radius: 50%; background: #2a3559; display: block; }
+  .browser .chrome .addr {
+    flex: 1; background: var(--bg-2); border: 1px solid var(--line-2);
+    border-radius: 6px; padding: 4px 10px; color: var(--ink-2); font-family: ui-monospace, monospace; font-size: 12px;
+  }
+  .browser .page { padding: 30px 36px; min-height: 240px; color: var(--ink); }
+  .browser .page.light {
+    background: #f7f8fb; color: #1f2a44;
+  }
+  .browser .page.light h3 { color: #0b1226; }
+  .browser .page.light .muted { color: #6a7693; }
+
+  .form-card {
+    background: var(--bg-2);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    padding: 24px;
+    max-width: 540px;
+  }
+  .form-card h3 { margin: 0 0 6px; font-size: 18px; letter-spacing: -0.01em; }
+  .form-card p { color: var(--mute); margin: 0 0 18px; font-size: 13.5px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .field input, .field .fake-input {
+    width: 100%; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line-2);
+    border-radius: 7px; color: var(--ink); font: inherit; font-family: ui-monospace, monospace; font-size: 13px;
+  }
+  .field .fake-input { display: block; }
+  .btn {
+    display: inline-block;
+    padding: 10px 18px;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #4a8fdc 0%, #2b6cba 100%);
+    color: white; font-weight: 600; font-size: 13.5px; border: none;
+    text-decoration: none;
+  }
+  .btn.ghost {
+    background: transparent; border: 1px solid var(--line-2); color: var(--ink-2);
+  }
+
+  .perms { list-style: none; padding: 0; margin: 14px 0; font-size: 13.5px; }
+  .perms li { padding: 4px 0; display: flex; align-items: center; gap: 10px; }
+  .perms li .y { color: var(--ok); width: 16px; }
+  .perms li .n { color: var(--bad); width: 16px; }
+
+  .manifest {
+    background: var(--bg-2); border: 1px solid var(--line-2);
+    border-radius: 8px; padding: 14px 16px;
+    font-family: ui-monospace, monospace; font-size: 12.5px;
+    color: var(--ink-2); white-space: pre; overflow-x: auto;
+  }
+  .manifest .k { color: var(--accent); }
+  .manifest .s { color: var(--ok); }
+
+  .done-card {
+    background: linear-gradient(180deg, rgba(110,231,168,0.08), rgba(110,231,168,0.02));
+    border: 1px solid rgba(110,231,168,0.35);
+    border-radius: 10px;
+    padding: 22px 24px;
+  }
+  .done-card h3 { margin: 0 0 6px; color: var(--ok); font-size: 17px; }
+  .done-card p { color: var(--ink-2); margin: 0; font-size: 13.5px; }
+  .done-card ul { margin: 12px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 13.5px; }
+  .done-card li { margin: 4px 0; }
+
+  .pager {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .pager a { color: var(--accent); text-decoration: none; }
+  .pager .home { color: var(--mute); }
+</style>
+</head>
+<body>
+<div class="top">
+  <a href="index.html">← Tour home</a>
+  <div class="nav">
+    <span style="color:var(--mute)">Chapter 1 of 7</span>
+    <a href="02-onboarding.html">Next: onboarding →</a>
+  </div>
+</div>
+<main>
+  <h1>Acme installs RapidusSquad</h1>
+  <p class="lede">
+    Hassan (Acme's platform lead) installs RapidusSquad on a small VM in Acme's
+    VPC. Target: 15 minutes from <code>git clone</code> to "Casey is in Slack
+    and connected to GitHub." This chapter walks the eight steps in real time.
+  </p>
+  <p class="who"><strong>Who:</strong> Hassan, Acme admin · <strong>Where:</strong> a t3.medium in Acme's AWS · <strong>Time elapsed:</strong> 0 → 15 min</p>
+
+  <div class="step">
+    <div class="n">1</div>
+    <div>
+      <h2>Pull the repo and configure secrets <span class="time">· t+0:00</span></h2>
+      <div class="body">
+        <div class="term">
+          <div class="bar">
+            <div class="dot red"></div><div class="dot yel"></div><div class="dot grn"></div>
+            <span>hassan@acme-tools — bash</span>
+            <span class="path">~/deploy</span>
+          </div>
+          <pre><span class="prompt">$</span> <span class="cmd">git clone https://github.com/rapidussquad/rapidussquad.git</span>
+Cloning into 'rapidussquad'...
+<span class="mute">remote: Enumerating objects: 2431, done.</span>
+Resolving deltas: 100% (1812/1812), done.
+
+<span class="prompt">$</span> <span class="cmd">cd rapidussquad &amp;&amp; cp .env.example .env</span>
+<span class="prompt">$</span> <span class="cmd">$EDITOR .env</span>
+<span class="comment"># set ANTHROPIC_API_KEY=sk-ant-...</span>
+<span class="comment"># set POSTGRES_PASSWORD=...</span>
+<span class="comment"># set DOMAIN=casey.acme.com</span>
+<span class="comment"># save &amp; quit</span>
+</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">2</div>
+    <div>
+      <h2>Bring up the stack <span class="time">· t+2:30</span></h2>
+      <div class="body">
+        <div class="term">
+          <div class="bar">
+            <div class="dot red"></div><div class="dot yel"></div><div class="dot grn"></div>
+            <span>hassan@acme-tools — bash</span>
+            <span class="path">~/deploy/rapidussquad</span>
+          </div>
+          <pre><span class="prompt">$</span> <span class="cmd">docker compose up -d</span>
+<span class="mute">[+] Running 4/4</span>
+ <span class="ok">✔</span> Container rapidussquad-postgres-1   Started
+ <span class="ok">✔</span> Container rapidussquad-casey-app-1  Started
+ <span class="ok">✔</span> Container rapidussquad-sandbox-1    Started   <span class="comment"># sandbox waits idle</span>
+ <span class="ok">✔</span> Container rapidussquad-traefik-1    Started
+
+<span class="prompt">$</span> <span class="cmd">docker compose logs casey-app | tail -3</span>
+<span class="mute">casey-app  | [01:30:14] migrations: 14 applied, db ready</span>
+<span class="mute">casey-app  | [01:30:15] admin UI listening on :3000</span>
+<span class="warn">casey-app  | [01:30:15] BOOTSTRAP TOKEN: setup_4xz9k_2f1d7e — visit https://casey.acme.com/setup</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">3</div>
+    <div>
+      <h2>Bootstrap admin (browser) <span class="time">· t+3:00</span></h2>
+      <div class="body">
+        <div class="browser">
+          <div class="chrome">
+            <div class="dots"><i></i><i></i><i></i></div>
+            <div class="addr">https://casey.acme.com/setup</div>
+          </div>
+          <div class="page">
+            <div class="form-card">
+              <h3>Welcome to RapidusSquad</h3>
+              <p>RapidusSquad is installed but needs a bootstrap admin. Paste the setup token from your docker logs, and your Slack user ID.</p>
+              <div class="field">
+                <label>Setup token</label>
+                <div class="fake-input">setup_4xz9k_2f1d7e</div>
+              </div>
+              <div class="field">
+                <label>Your Slack user ID</label>
+                <div class="fake-input">U_HASSAN_ACME</div>
+              </div>
+              <div class="field">
+                <label>Your email (for digest receipts)</label>
+                <div class="fake-input">hassan@acme.com</div>
+              </div>
+              <a class="btn" href="#">Create admin and continue →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">4</div>
+    <div>
+      <h2>Create the Slack app from manifest <span class="time">· t+4:30</span></h2>
+      <div class="body">
+        <div class="browser">
+          <div class="chrome">
+            <div class="dots"><i></i><i></i><i></i></div>
+            <div class="addr">https://casey.acme.com/admin/setup/slack</div>
+          </div>
+          <div class="page">
+            <h3 style="margin-top:0">Step 1 of 3 — Connect Slack</h3>
+            <p style="color:var(--mute);font-size:13.5px;margin:0 0 18px">
+              Paste this YAML into <strong>api.slack.com/apps → Create New App → From manifest</strong>, then come back with the Bot Token and Signing Secret.
+            </p>
+            <div class="manifest"><span class="k">display_information:</span>
+  <span class="k">name:</span> <span class="s">Casey</span>
+  <span class="k">description:</span> <span class="s">RapidusSquad for Acme</span>
+<span class="k">features:</span>
+  <span class="k">bot_user:</span>
+    <span class="k">display_name:</span> <span class="s">Casey</span>
+    <span class="k">always_online:</span> <span class="s">true</span>
+  <span class="k">slash_commands:</span>
+    - <span class="k">command:</span> <span class="s">/register</span>
+      <span class="k">description:</span> <span class="s">Request access to Casey</span>
+<span class="k">oauth_config:</span>
+  <span class="k">scopes:</span>
+    <span class="k">bot:</span> [chat:write, im:history, im:write, commands,
+           channels:history, channels:read, reactions:read]
+<span class="k">settings:</span>
+  <span class="k">socket_mode_enabled:</span> <span class="s">true</span>
+  <span class="k">event_subscriptions:</span>
+    <span class="k">bot_events:</span> [message.im, app_mention, reaction_added]</div>
+            <div style="margin-top:18px;display:flex;gap:10px">
+              <a class="btn" href="#">I've installed it — enter tokens →</a>
+              <a class="btn ghost" href="#">Skip for now</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">5</div>
+    <div>
+      <h2>Create the GitHub App from manifest <span class="time">· t+8:00</span></h2>
+      <div class="body">
+        <div class="browser">
+          <div class="chrome">
+            <div class="dots"><i></i><i></i><i></i></div>
+            <div class="addr">https://casey.acme.com/admin/setup/github</div>
+          </div>
+          <div class="page">
+            <h3 style="margin-top:0">Step 2 of 3 — Connect GitHub</h3>
+            <p style="color:var(--mute);font-size:13.5px;margin:0 0 14px">
+              RapidusSquad uses GitHub through a GitHub App <strong>you create in your own org</strong>.
+              We never share a GitHub App between customers — your install, your secrets, your control.
+            </p>
+            <div style="display:flex;gap:18px;flex-wrap:wrap">
+              <div style="flex:1;min-width:280px">
+                <label style="font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:0.1em">Capabilities the manifest will request</label>
+                <ul class="perms">
+                  <li><span class="y">✓</span> Contents — read &amp; write</li>
+                  <li><span class="y">✓</span> Pull requests — read &amp; write</li>
+                  <li><span class="y">✓</span> Issues — read &amp; write</li>
+                  <li><span class="y">✓</span> Metadata — read</li>
+                  <li><span class="n">✗</span> Workflows — no access</li>
+                  <li><span class="n">✗</span> Administration — no access</li>
+                  <li><span class="n">✗</span> Secrets — no access</li>
+                </ul>
+              </div>
+              <div style="flex:1;min-width:280px">
+                <label style="font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:0.1em">What will happen</label>
+                <ol style="color:var(--ink-2);font-size:13.5px;line-height:1.7;padding-left:18px">
+                  <li>GitHub opens the manifest flow in your org</li>
+                  <li>You confirm the app name and permissions</li>
+                  <li>You install the app on the repos Casey should see</li>
+                  <li>GitHub redirects back here with the install ID</li>
+                </ol>
+              </div>
+            </div>
+            <div style="margin-top:18px">
+              <a class="btn" href="#">Open GitHub manifest flow →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">6</div>
+    <div>
+      <h2>Pick repos &amp; set trust modes <span class="time">· t+11:00</span></h2>
+      <div class="body">
+        <div class="browser">
+          <div class="chrome">
+            <div class="dots"><i></i><i></i><i></i></div>
+            <div class="addr">https://casey.acme.com/admin/setup/repos</div>
+          </div>
+          <div class="page">
+            <h3 style="margin-top:0">Step 3 of 3 — Repository trust modes</h3>
+            <p style="color:var(--mute);font-size:13.5px;margin:0 0 18px">
+              For each repo Casey can see, pick how much Casey is allowed to do.
+              We've pre-flagged repos that look sensitive (auth, billing, infra) as <code>gated</code>.
+            </p>
+            <table style="width:100%;border-collapse:collapse;font-size:13.5px">
+              <thead>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <th style="text-align:left;padding:8px 0;color:var(--mute);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.1em">Repository</th>
+                  <th style="text-align:left;padding:8px 0;color:var(--mute);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.1em">Mode</th>
+                  <th style="text-align:left;padding:8px 0;color:var(--mute);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:0.1em">Branch protection</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:10px 0">acme/web</td>
+                  <td><span style="color:var(--accent);font-family:ui-monospace,monospace;font-size:12.5px">trusted-author ▾</span></td>
+                  <td><span style="color:var(--ok)">●</span> <span style="color:var(--ink-2)">verified</span></td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:10px 0">acme/api</td>
+                  <td><span style="color:var(--accent);font-family:ui-monospace,monospace;font-size:12.5px">trusted-author ▾</span></td>
+                  <td><span style="color:var(--ok)">●</span> <span style="color:var(--ink-2)">verified</span></td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:10px 0">acme/billing</td>
+                  <td><span style="color:var(--warn);font-family:ui-monospace,monospace;font-size:12.5px">gated ▾</span></td>
+                  <td><span style="color:var(--ok)">●</span> <span style="color:var(--ink-2)">verified</span></td>
+                </tr>
+                <tr style="border-bottom:1px solid var(--line)">
+                  <td style="padding:10px 0">acme/auth-service</td>
+                  <td><span style="color:var(--warn);font-family:ui-monospace,monospace;font-size:12.5px">gated ▾</span></td>
+                  <td><span style="color:var(--ok)">●</span> <span style="color:var(--ink-2)">verified</span></td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 0">acme/infrastructure</td>
+                  <td><span style="color:var(--bad);font-family:ui-monospace,monospace;font-size:12.5px">read-only ▾</span></td>
+                  <td><span style="color:var(--mute)">—</span></td>
+                </tr>
+              </tbody>
+            </table>
+            <p style="color:var(--mute);font-size:12.5px;margin:14px 0 0">
+              Branch protection check: every <code>trusted-author</code> repo must have required reviews + required CI + no force-push on <code>main</code>. We re-check this daily.
+            </p>
+            <div style="margin-top:18px">
+              <a class="btn" href="#">Save and finish setup →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">7</div>
+    <div>
+      <h2>Choose who can use Casey <span class="time">· t+12:30</span></h2>
+      <div class="body">
+        <div class="browser">
+          <div class="chrome">
+            <div class="dots"><i></i><i></i><i></i></div>
+            <div class="addr">https://casey.acme.com/admin/setup/user-policy</div>
+          </div>
+          <div class="page">
+            <h3 style="margin-top:0">Final step — User onboarding policy</h3>
+            <p style="color:var(--mute);font-size:13.5px;margin:0 0 18px">
+              How should new users get access to Casey? Pick a default — you can change it any time from the admin UI. <code>/register</code> always works as a manual fallback regardless of which policy you choose.
+            </p>
+            <div style="display:grid;gap:10px;max-width:680px">
+              <label style="display:flex;gap:12px;padding:14px 16px;background:var(--bg-2);border:1px solid var(--accent);border-radius:10px;cursor:pointer">
+                <span style="color:var(--accent);font-size:18px;margin-top:1px">◉</span>
+                <span>
+                  <strong style="color:var(--ink);display:block;font-size:14px">Anyone in your Slack workspace</strong>
+                  <span style="color:var(--mute);font-size:13px">If they're already in acme.slack.com, they can use Casey. Your IT team already vetted them. Recommended for most teams.</span>
+                </span>
+                <span style="margin-left:auto;color:var(--accent);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;align-self:flex-start">Recommended</span>
+              </label>
+              <label style="display:flex;gap:12px;padding:14px 16px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:10px;cursor:pointer">
+                <span style="color:var(--mute);font-size:18px;margin-top:1px">○</span>
+                <span>
+                  <strong style="color:var(--ink);display:block;font-size:14px">Only people with an @acme.com email</strong>
+                  <span style="color:var(--mute);font-size:13px">Useful if your Slack has guests or contractors who shouldn't get Casey access. Email is read from the Slack profile.</span>
+                </span>
+              </label>
+              <label style="display:flex;gap:12px;padding:14px 16px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:10px;cursor:pointer">
+                <span style="color:var(--mute);font-size:18px;margin-top:1px">○</span>
+                <span>
+                  <strong style="color:var(--ink);display:block;font-size:14px">Manual approval only</strong>
+                  <span style="color:var(--mute);font-size:13px">Nobody gets in until you personally approve them via Slack DM. Tight control; works fine for small teams.</span>
+                </span>
+              </label>
+            </div>
+            <p style="color:var(--mute);font-size:12.5px;margin:14px 0 0">
+              Default role for auto-approved users: <code>dev</code>. Admin role is granted manually only.
+            </p>
+            <div style="margin-top:18px">
+              <a class="btn" href="#">Save and finish setup →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">8</div>
+    <div>
+      <h2>Casey arrives in Slack <span class="time">· t+13:30</span></h2>
+      <div class="body">
+        <div class="term" style="background:#3f0e40;border-color:#5a1d5b">
+          <div class="bar" style="background:#350a37;border-color:#5a1d5b">
+            <div class="dot red"></div><div class="dot yel"></div><div class="dot grn"></div>
+            <span style="color:#c4a8c6">Slack · #general</span>
+            <span class="path" style="color:#c4a8c6">acme.slack.com</span>
+          </div>
+          <pre style="background:#fff;color:#1d1c1d;padding:18px 22px"><span style="color:#1264a3;font-weight:700">Casey</span>  <span style="color:#616061;font-size:12px">APP</span>  <span style="color:#616061;font-size:12px">11:43</span>
+joined #general.
+
+<span style="color:#1264a3;font-weight:700">Casey</span>  <span style="color:#616061;font-size:12px">APP</span>  <span style="color:#616061;font-size:12px">11:43</span>
+Hi! I'm Casey. To get started, DM me or run <span style="background:#f4ede4;padding:0 4px;border-radius:3px;font-family:ui-monospace,monospace;color:#7c2d12">/register</span> to request access.
+
+Connected tools: GitHub, Linear, Slack. More can be added by your admin.
+</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="n">9</div>
+    <div>
+      <h2>Done — Casey is live <span class="time">· t+15:00</span></h2>
+      <div class="body">
+        <div class="done-card">
+          <h3>✓ Install complete</h3>
+          <p>RapidusSquad is running on Acme's infra. Hassan is the only admin. User policy is set to <em>auto-approve workspace members</em>, so the rest of Acme will be picked up automatically the first time they DM Casey. Edge cases (contractors, external collaborators) use <code>/register</code> manually (Chapter 2).</p>
+          <ul>
+            <li>3 containers running: <code>casey-app</code>, <code>sandbox</code>, <code>postgres</code></li>
+            <li>2 connectors live: GitHub (acme org), Linear (workspace ID set)</li>
+            <li>5 repos enrolled, trust modes set</li>
+            <li>User policy: auto-approve Slack workspace members · <code>/register</code> as manual fallback</li>
+            <li>Audit log writing to Postgres, default 90-day retention</li>
+            <li>Health page at <code>/admin/health</code></li>
+            <li>Slack workspace is the IdP — no separate password</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pager">
+    <a class="home" href="index.html">← Tour home</a>
+    <a href="02-onboarding.html">Next: Alice gets approved →</a>
+  </div>
+</main>
+</body>
+</html>

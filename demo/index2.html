@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>RapidusSquad — Product Mock Tour (Canonical UX edition)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #fbfbfd;
+    --bg-2: #ffffff;
+    --ink: #0e1116;
+    --ink-2: #1d242f;
+    --mute: #6e7787;
+    --line: #ecedf0;
+    --line-2: #dde0e5;
+    --accent: #4f46e5;
+    --accent-2: #8b5cf6;
+    --accent-soft: #eef2ff;
+    --ok: #059669;
+    --warn: #d97706;
+    --bad: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+  body {
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:
+      radial-gradient(1200px 700px at 80% -20%, rgba(139, 92, 246, 0.10), transparent 60%),
+      radial-gradient(900px 600px at 0% 110%, rgba(79, 70, 229, 0.06), transparent 60%),
+      var(--bg);
+    min-height: 100vh;
+  }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 72px 32px 96px; }
+
+  .topbar {
+    max-width: 1080px; margin: 0 auto; padding: 22px 32px 0;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; color: var(--mute);
+  }
+  .topbar .alt {
+    color: var(--accent); text-decoration: none; font-weight: 600;
+    background: var(--accent-soft); padding: 6px 12px; border-radius: 999px;
+  }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700;
+    background: var(--accent-soft);
+    border: 1px solid rgba(79, 70, 229, 0.18);
+    padding: 6px 12px; border-radius: 999px;
+    margin-bottom: 22px;
+  }
+  .eyebrow::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+  }
+
+  h1 {
+    font-size: 52px; line-height: 1.04; margin: 0 0 18px;
+    letter-spacing: -0.025em; font-weight: 700;
+    color: var(--ink);
+  }
+  h1 .grad {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .lede {
+    font-size: 18px; line-height: 1.6;
+    color: var(--ink-2); max-width: 720px; margin: 0 0 18px;
+    font-weight: 400;
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+  .meta {
+    color: var(--mute); font-size: 13.5px;
+    display: flex; gap: 18px; flex-wrap: wrap;
+    margin-bottom: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+  .meta .kv { display: inline-flex; gap: 6px; }
+  .meta .kv b { color: var(--ink-2); font-weight: 600; }
+
+  .compare-banner {
+    background: white;
+    border: 1px solid var(--line-2);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 56px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 8px 24px -8px rgba(0,0,0,0.04);
+  }
+  .compare-banner h3 {
+    margin: 0 0 8px; font-size: 16px; font-weight: 700;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .compare-banner h3 .pill {
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white; padding: 3px 10px; border-radius: 999px; font-weight: 700;
+  }
+  .compare-banner p {
+    margin: 0; color: var(--mute); font-size: 14px; line-height: 1.6;
+  }
+  .compare-banner p a { color: var(--accent); text-decoration: none; font-weight: 600; }
+
+  .section-title {
+    font-size: 11.5px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--mute); font-weight: 700;
+    margin: 56px 0 18px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .section-title::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px 24px;
+    text-decoration: none; color: var(--ink);
+    display: flex; flex-direction: column; gap: 10px;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    position: relative; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: var(--line-2);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 12px 32px -8px rgba(79, 70, 229, 0.12);
+  }
+  .card.featured {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, white 0%, #fafaff 100%);
+    border-color: rgba(79, 70, 229, 0.25);
+  }
+  .card .chip {
+    align-self: flex-start;
+    font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--mute); font-weight: 700;
+    border: 1px solid var(--line-2);
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--bg);
+  }
+  .card.featured .chip {
+    background: var(--accent-soft);
+    border-color: rgba(79, 70, 229, 0.2);
+    color: var(--accent);
+  }
+  .card h3 {
+    margin: 6px 0 0; font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+    color: var(--ink); line-height: 1.3;
+  }
+  .card.featured h3 { font-size: 19px; }
+  .card p {
+    margin: 0; color: var(--mute); font-size: 13.5px; line-height: 1.55;
+  }
+  .card .open {
+    color: var(--accent); font-size: 13px; font-weight: 600;
+    margin-top: auto; padding-top: 14px;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .card .open::after { content: " →"; transition: transform 0.15s ease; }
+  .card:hover .open::after { transform: translateX(2px); }
+
+  .card .badge-original {
+    align-self: flex-start;
+    font-size: 10.5px; color: var(--mute); font-weight: 600;
+    border: 1px dashed var(--line-2); padding: 3px 8px; border-radius: 6px;
+    background: var(--bg);
+    margin-top: -4px;
+  }
+
+  .foot {
+    margin-top: 80px; padding-top: 28px;
+    border-top: 1px solid var(--line);
+    color: var(--mute); font-size: 13px;
+    display: flex; flex-wrap: wrap; gap: 18px; justify-content: space-between;
+  }
+  .foot a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  kbd {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    background: white; border: 1px solid var(--line-2);
+    padding: 2px 7px; border-radius: 5px; font-size: 12px; color: var(--ink-2);
+    box-shadow: 0 1px 0 var(--line-2);
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span>RapidusSquad · Product mock tour</span>
+  <a class="alt" href="index.html">↗ Switch to original tour (sandbox-visible)</a>
+</div>
+
+<main>
+  <span class="eyebrow">Edition 2 · Canonical production UX</span>
+  <h1>What your team's day with Casey will look like — <span class="grad">the polished version</span></h1>
+  <p class="lede">
+    Same seven scenes, same RapidusSquad product. Different Slack-side UX: every
+    Casey response is <strong>one collapsing message</strong> with a TodoWrite
+    checklist, summary card, and action affordances — the pattern that ships to
+    real users. The original tour shows a "stream of messages" pattern useful
+    for the split-pane sandbox-visible mode; this edition shows the production
+    default.
+  </p>
+  <p class="meta">
+    <span class="kv"><b>Beta partner:</b> Acme</span>
+    <span class="kv"><b>Stack:</b> Slack + GitHub + Linear + Notion</span>
+    <span class="kv"><b>Mode:</b> self-hosted</span>
+    <span class="kv"><b>Spec source:</b> loading-ux-cursor.html</span>
+  </p>
+
+  <div class="compare-banner">
+    <h3><span class="pill">For comparison</span> Two UX patterns, same product</h3>
+    <p>
+      The chapters that show Casey at work (3, 4, 6, 7) have <strong>two versions</strong>: this edition uses the canonical Cursor-style UX (one collapsing message per task); the <a href="index.html">original tour</a> uses a streaming pattern that's better for the split-pane sandbox-visible mode. Install / onboarding / admin UI (1, 2, 5) look the same in both — they're not Casey-message-driven. Both editions share Chapter 8, the interactive UX spec.
+    </p>
+  </div>
+
+  <div class="section-title">30-second pitch</div>
+  <div class="grid">
+    <a class="card featured" href="elevator.html">
+      <span class="chip">Live mock · auto-plays</span>
+      <h3>Elevator pitch — Casey fixing a flaky test, in real time</h3>
+      <p>Animated split-pane: Slack messages on the left, sandbox terminal streaming on the right. 30 seconds, autoplays on load. Uses the original streaming pattern; works as the opening hook regardless of which edition you're showing.</p>
+      <span class="open">Play the elevator pitch</span>
+    </a>
+  </div>
+
+  <div class="section-title">Day 1 — install &amp; first user</div>
+  <div class="grid">
+    <a class="card" href="01-install.html">
+      <span class="chip">Chapter 1 · 15 min</span>
+      <span class="badge-original">shared with original tour — no Casey UX</span>
+      <h3>Acme installs RapidusSquad</h3>
+      <p>Browser + terminal install flow. Identical across both tour editions — there's no Casey-message UX to differentiate here.</p>
+      <span class="open">Open the install flow</span>
+    </a>
+    <a class="card" href="02-onboarding.html">
+      <span class="chip">Chapter 2 · 2 min</span>
+      <span class="badge-original">shared with original tour</span>
+      <h3>Alice gets approved via <code>/register</code></h3>
+      <p>The Slack approval card is the same in both UX worlds — a structured Block Kit message with Approve / Deny actions. Identical in both editions.</p>
+      <span class="open">Open the onboarding flow</span>
+    </a>
+  </div>
+
+  <div class="section-title">Day 2 — real work · canonical UX</div>
+  <div class="grid">
+    <a class="card" href="03b-slack-read.html">
+      <span class="chip">Chapter 3 · canonical</span>
+      <h3>Cross-tool query with collapsing answer</h3>
+      <p>Alice asks about the payments migration. Casey runs through Linear, GitHub, Notion — shown as a TodoWrite checklist updating live. Collapses to a synthesized answer card with <em>View sources</em> and overflow actions.</p>
+      <span class="open">Open the canonical read flow</span>
+    </a>
+    <a class="card" href="04b-sandbox-fix.html">
+      <span class="chip">Chapter 4 · canonical · the showcase</span>
+      <h3>Fix-a-flaky-test, the production way</h3>
+      <p>Split-pane: canonical Casey message on the left (working header, checklist, collapses to PR card with action buttons), live sandbox terminal on the right. The cleanest possible demonstration of "what users see" vs "what's actually happening."</p>
+      <span class="open">Open the showcase</span>
+    </a>
+    <a class="card" href="05-admin-ui.html">
+      <span class="chip">Chapter 5 · admin UI</span>
+      <span class="badge-original">shared with original tour</span>
+      <h3>Hassan opens the dashboard</h3>
+      <p>Admin web UI — access requests, connectors, audit log, schedules, system health, user policy. Same in both editions; not a Casey-message surface.</p>
+      <span class="open">Open the admin UI</span>
+    </a>
+  </div>
+
+  <div class="section-title">Day 7 — autonomous · canonical UX</div>
+  <div class="grid">
+    <a class="card" href="06b-schedule.html">
+      <span class="chip">Chapter 6 · canonical</span>
+      <h3>Daily digest as a canonical Casey message</h3>
+      <p>09:00 standup. Casey wakes up, walks through the digest scope as a checklist, then posts the synthesized digest as a collapsing summary card with <em>Skip tomorrow</em> / <em>Edit schedule</em> actions.</p>
+      <span class="open">Open the scheduled scene</span>
+    </a>
+  </div>
+
+  <div class="section-title">Day 30 — when things go wrong · canonical UX</div>
+  <div class="grid">
+    <a class="card" href="07b-incident.html">
+      <span class="chip">Chapter 7 · canonical · safety story</span>
+      <h3>Prompt injection — held, narrated, recoverable</h3>
+      <p>Alice's question still gets a safe answer in the canonical pattern. Hassan's admin alert lands as a separate Casey message in his DM, with <em>View trace</em> / <em>Unpause user</em> / <em>Quarantine source</em> action buttons. The pattern handles failure gracefully.</p>
+      <span class="open">Open the incident scene</span>
+    </a>
+    <a class="card" href="09b-guardrails.html">
+      <span class="chip">Chapter 9 · canonical · v2.1 guardrails</span>
+      <h3>The four moments Casey says "no" (or "wait")</h3>
+      <p>First-touch sandbox setup, per-user PR quota, channel-scoped trust refusal, degraded-mode fallback. Each is the canonical UX handling a non-happy state gracefully — useful for sales calls where prospects ask "what happens when X breaks?"</p>
+      <span class="open">Open the guardrails scenes</span>
+    </a>
+  </div>
+
+  <div class="section-title">The UX spec itself</div>
+  <div class="grid">
+    <a class="card featured" href="08-casey-ux.html">
+      <span class="chip">Chapter 8 · interactive spec</span>
+      <h3>The canonical Casey-in-Slack UX (live, interactive)</h3>
+      <p>The Cursor-style state machine that underpins every chapter in this edition: <code>idle → working → complete | cancelled | failed</code>. Four scenarios you can switch between; every button, modal, and overflow action wired up. This is the production UX the FE agent should build.</p>
+      <span class="open">Open the interactive UX spec</span>
+    </a>
+  </div>
+
+  <div class="foot">
+    <div>Mock data only — no real integrations are called. Use <kbd>←</kbd> / <kbd>→</kbd> on chapter pages to navigate.</div>
+    <div>
+      <a href="index.html">↗ Original tour (sandbox-visible)</a> ·
+      <a href="../docs/casey-self-hosted-product-plan.html">Product plan →</a>
+    </div>
+  </div>
+</main>
+</body>
+</html>

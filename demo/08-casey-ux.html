@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter 8 — Casey's in-Slack UX</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #07090f; --panel: #111a2e; --ink: #e7ecf5; --ink-2: #c3cee0; --mute: #7d8ba8;
+    --line: #1c2541; --line-2: #233055; --accent: #79c0ff; --accent-2: #b794ff;
+    --slack-bg: #f4f4f5; --slack-panel: #ffffff; --slack-line: #e3e3e5;
+    --slack-ink: #1d1c1d; --slack-mute: #616061;
+    --slack-blue: #1264a3; --slack-green: #2eb67d; --slack-red: #e01e5a;
+    --slack-orange: #e8912d; --slack-accent: #007a5a;
+    --checklist-bg: #f8f8f8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); min-height: 100vh;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .top { max-width: 1200px; margin: 0 auto; padding: 28px 32px 0; display: flex; justify-content: space-between; font-size: 13px; color: var(--mute); }
+  .top a { color: var(--accent); text-decoration: none; }
+  .top .nav a { margin-left: 14px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 32px 96px; }
+  h1 { font-size: 30px; margin: 18px 0 6px; letter-spacing: -0.01em; }
+  .lede { color: var(--ink-2); max-width: 820px; margin: 0 0 8px; }
+  .who { color: var(--mute); font-size: 13px; margin-bottom: 24px; }
+  .who strong { color: var(--ink-2); }
+
+  /* Scenario selector */
+  .scenarios {
+    display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .scenarios button {
+    background: var(--panel); border: 1px solid var(--line-2); color: var(--ink-2);
+    padding: 7px 14px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer;
+    font-family: inherit;
+  }
+  .scenarios button:hover { border-color: var(--accent); color: var(--ink); }
+  .scenarios button.active { background: rgba(121,192,255,0.1); border-color: var(--accent); color: var(--accent); }
+  .scenarios .gap { flex: 1; }
+  .scenarios .replay {
+    background: linear-gradient(180deg, var(--accent-2), #8a5fd8); color: white; border: none;
+  }
+
+  /* Slack container */
+  .slack {
+    background: var(--slack-panel); border: 1px solid var(--slack-line);
+    border-radius: 12px; overflow: hidden;
+    display: flex; flex-direction: column;
+    height: 660px;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.4);
+  }
+  .slack-header {
+    padding: 13px 18px; border-bottom: 1px solid var(--slack-line);
+    display: flex; align-items: center; gap: 10px;
+    background: white;
+  }
+  .slack-header .hash { color: var(--slack-mute); font-weight: 700; font-size: 17px; }
+  .slack-header .channel { color: var(--slack-ink); font-weight: 800; font-size: 15px; }
+  .slack-header .meta { color: var(--slack-mute); font-size: 12.5px; }
+  .thread { flex: 1; overflow-y: auto; padding: 14px 18px; background: white; }
+
+  .msg {
+    display: grid; grid-template-columns: 40px 1fr;
+    gap: 10px; padding: 8px 0;
+    position: relative;
+    transition: opacity 0.3s;
+  }
+  .msg.deleted { opacity: 0.4; }
+  .msg.deleted .body > * { text-decoration: line-through; }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 6px;
+    color: white; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+  }
+  .avatar.bot { background: linear-gradient(135deg, #4a8fdc, #2b6cba); }
+  .avatar.alice { background: linear-gradient(135deg, #2eb67d, #1a8c5e); }
+  .avatar.hassan { background: linear-gradient(135deg, #e8912d, #b86a1e); }
+  .body { min-width: 0; }
+  .meta-row { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; }
+  .meta-row .name { font-weight: 800; color: var(--slack-ink); font-size: 15px; }
+  .meta-row .app { background: #ddd; color: #555; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+  .meta-row .time { color: var(--slack-mute); font-size: 12px; }
+  .text { color: var(--slack-ink); font-size: 14.5px; line-height: 1.55; margin-top: 2px; }
+  .text code {
+    background: #f4ede4; padding: 1px 5px; border-radius: 3px;
+    color: #7c2d12; font-family: ui-monospace, monospace; font-size: 12.5px;
+  }
+
+  /* Status block — the heart of the Cursor-style UX */
+  .status-block {
+    margin-top: 6px;
+    background: var(--checklist-bg);
+    border: 1px solid var(--slack-line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .status-header {
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer;
+    background: var(--checklist-bg);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .status-header.expanded { border-bottom-color: var(--slack-line); }
+  .status-header:hover { background: #f1f1f3; }
+  .status-icon {
+    width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: white; flex-shrink: 0;
+  }
+  .status-icon.working { background: var(--slack-blue); animation: spin 1.4s linear infinite; }
+  .status-icon.working::after { content: ""; display: block; width: 8px; height: 8px; border-radius: 50%; border: 2px solid white; border-top-color: transparent; }
+  @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+  .status-icon.complete { background: var(--slack-green); }
+  .status-icon.complete::after { content: "✓"; font-weight: 700; }
+  .status-icon.cancelled { background: var(--slack-mute); }
+  .status-icon.cancelled::after { content: "■"; font-size: 8px; }
+  .status-icon.failed { background: var(--slack-red); }
+  .status-icon.failed::after { content: "!"; font-weight: 700; }
+  .status-label {
+    font-weight: 700; font-size: 13.5px; color: var(--slack-ink);
+  }
+  .status-meta {
+    color: var(--slack-mute); font-size: 12.5px;
+  }
+  .status-meta .branch { font-family: ui-monospace, monospace; color: var(--slack-blue); }
+  .status-chevron {
+    margin-left: auto; color: var(--slack-mute); font-size: 11px;
+    transition: transform 0.2s;
+  }
+  .status-header.expanded .status-chevron { transform: rotate(180deg); }
+  .status-cancel {
+    background: white; border: 1px solid #c1c1c1; padding: 4px 10px;
+    border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;
+    color: var(--slack-ink);
+    margin-left: auto;
+  }
+  .status-cancel:hover { background: #f0f0f0; }
+
+  .status-body {
+    padding: 10px 14px;
+    background: white;
+    max-height: 600px; overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  .status-body.collapsed { max-height: 0; padding-top: 0; padding-bottom: 0; }
+
+  /* Substatus (for lookup, no TodoWrite) */
+  .substatus {
+    color: var(--slack-mute); font-size: 13px; padding: 4px 0;
+    font-style: italic;
+  }
+  .substatus.fade-in { animation: fadeup 0.3s ease; }
+  @keyframes fadeup { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+
+  /* TodoWrite checklist */
+  .todo-list { list-style: none; padding: 0; margin: 0; }
+  .todo-item {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 5px 0;
+    font-size: 13.5px;
+    animation: fadeup 0.25s ease;
+  }
+  .todo-mark {
+    width: 16px; height: 16px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+    font-size: 10px; font-weight: 700;
+  }
+  .todo-mark.pending { border: 1.5px solid #c1c1c1; color: white; background: transparent; }
+  .todo-mark.in_progress {
+    background: var(--slack-blue); color: white;
+    animation: pulse 1.4s infinite;
+  }
+  .todo-mark.in_progress::after { content: "◐"; }
+  .todo-mark.completed { background: var(--slack-green); color: white; }
+  .todo-mark.completed::after { content: "✓"; }
+  .todo-text { color: var(--slack-ink); line-height: 1.5; }
+  .todo-item.completed .todo-text { color: var(--slack-mute); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  /* Summary card — shown when complete/failed */
+  .summary-card {
+    margin-top: 8px;
+    border: 1px solid var(--slack-line);
+    border-left: 4px solid var(--slack-green);
+    background: white; border-radius: 6px;
+    padding: 14px 16px;
+    animation: fadein 0.3s ease;
+  }
+  @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .summary-card.failed { border-left-color: var(--slack-red); }
+  .summary-card .label {
+    font-size: 12px; color: var(--slack-mute); font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;
+  }
+  .summary-card.failed .label { color: var(--slack-red); }
+  .summary-card .body-text {
+    color: var(--slack-ink); font-size: 14px; line-height: 1.6;
+  }
+  .summary-card .footer-text {
+    margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0;
+    color: var(--slack-mute); font-size: 12.5px;
+  }
+  .summary-card .footer-text a { color: var(--slack-blue); text-decoration: none; font-weight: 600; }
+
+  /* Action bar */
+  .action-bar {
+    margin-top: 8px;
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+  }
+  .action-btn {
+    background: white; border: 1px solid #c1c1c1; padding: 5px 12px;
+    border-radius: 4px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    color: var(--slack-ink); font-family: inherit;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .action-btn:hover { background: #f0f0f0; }
+  .action-btn.primary { background: var(--slack-blue); color: white; border-color: var(--slack-blue); }
+  .action-btn.primary:hover { background: #0f5896; }
+  .action-btn.icon { padding: 5px 9px; }
+  .overflow-menu {
+    position: relative; display: inline-block;
+  }
+  .overflow-dropdown {
+    position: absolute; top: 100%; left: 0; margin-top: 4px;
+    background: white; border: 1px solid var(--slack-line);
+    border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    min-width: 160px; padding: 4px 0; z-index: 5;
+    display: none;
+  }
+  .overflow-dropdown.show { display: block; }
+  .overflow-item {
+    padding: 7px 14px; font-size: 13.5px; color: var(--slack-ink);
+    cursor: pointer; display: flex; align-items: center; gap: 10px;
+  }
+  .overflow-item:hover { background: #f4f4f5; }
+  .overflow-item.danger { color: var(--slack-red); }
+  .overflow-divider { height: 1px; background: var(--slack-line); margin: 4px 0; }
+
+  /* Follow-up input */
+  .followup {
+    margin-top: 8px;
+    background: #f8f8f8; border: 1px solid var(--slack-line); border-radius: 6px;
+    padding: 10px 12px;
+    display: none;
+  }
+  .followup.show { display: block; animation: fadeup 0.2s ease; }
+  .followup input {
+    width: 100%; background: white; border: 1px solid #c1c1c1; border-radius: 4px;
+    padding: 7px 10px; font: inherit; font-size: 13.5px; color: var(--slack-ink);
+  }
+  .followup .row { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+
+  /* Composer */
+  .composer { padding: 12px 18px; background: white; border-top: 1px solid var(--slack-line); }
+  .composer-input {
+    border: 1px solid var(--slack-line); border-radius: 6px;
+    padding: 10px 14px; color: var(--slack-mute); font-size: 14px;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--slack-ink); color: white;
+    padding: 12px 16px; border-radius: 8px;
+    font-size: 13px; max-width: 320px;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+    display: none; z-index: 100;
+  }
+  .toast.show { display: block; animation: slideup 0.3s ease; }
+  @keyframes slideup { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .toast .ttl { font-weight: 700; margin-bottom: 2px; font-size: 13px; }
+
+  /* Modal */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: none; align-items: center; justify-content: center;
+    z-index: 50;
+  }
+  .modal-bg.show { display: flex; animation: fadein 0.2s ease; }
+  .modal {
+    background: white; color: var(--slack-ink); border-radius: 10px;
+    width: 90%; max-width: 540px; overflow: hidden;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+  }
+  .modal-head { padding: 16px 20px; border-bottom: 1px solid var(--slack-line); font-weight: 800; font-size: 15px; display: flex; justify-content: space-between; }
+  .modal-head button { background: transparent; border: none; cursor: pointer; font-size: 20px; color: var(--slack-mute); }
+  .modal-body { padding: 18px 20px; font-size: 14px; line-height: 1.6; }
+  .modal-foot { padding: 12px 20px; border-top: 1px solid var(--slack-line); display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-body pre { background: #f4f4f5; padding: 12px 14px; border-radius: 6px; overflow-x: auto; font-size: 12.5px; }
+  .modal-body .feedback-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .modal-body .fb-btn { flex: 1; padding: 14px; border: 1px solid var(--slack-line); border-radius: 8px; background: white; cursor: pointer; font-size: 22px; }
+  .modal-body .fb-btn:hover { background: #f4f4f5; }
+  .modal-body .fb-btn.selected { border-color: var(--slack-blue); background: #e8f4fb; }
+  .modal-body textarea { width: 100%; min-height: 80px; padding: 10px; border: 1px solid var(--slack-line); border-radius: 6px; font: inherit; font-size: 13.5px; }
+
+  /* Annotation panel */
+  .annotation {
+    margin-top: 22px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 18px 22px;
+  }
+  .annotation h3 {
+    font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--mute); margin: 0 0 12px; font-weight: 700;
+  }
+  .annotation ul { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 13.5px; line-height: 1.7; }
+  .annotation code { background: rgba(255,255,255,0.04); padding: 1px 5px; border-radius: 3px; color: var(--accent); font-family: ui-monospace, monospace; font-size: 12px; }
+
+  .compare-note {
+    margin: 24px 0; padding: 16px 20px;
+    background: linear-gradient(180deg, rgba(183,148,255,0.06), rgba(121,192,255,0.02));
+    border: 1px solid rgba(183,148,255,0.3); border-radius: 10px;
+    color: var(--ink-2); font-size: 13.5px; line-height: 1.6;
+  }
+  .compare-note strong { color: var(--accent-2); }
+  .compare-note a { color: var(--accent); text-decoration: none; }
+
+  .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 50px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13px; }
+  .pager a { color: var(--accent); text-decoration: none; }
+  .pager .home { color: var(--mute); }
+</style>
+</head>
+<body>
+<div class="top">
+  <a href="07-incident.html">← Chapter 7</a>
+  <div class="nav">
+    <span style="color:var(--mute)">Chapter 8 of 8 · UX spec</span>
+    <a href="index.html">Back to tour →</a>
+  </div>
+</div>
+<main>
+  <h1>Casey's in-Slack UX (the canonical pattern)</h1>
+  <p class="lede">
+    Every Casey response renders through one consistent UX — a single mutating
+    message that goes <code>idle → working → complete | cancelled | failed</code>.
+    Working state shows a TodoWrite checklist that updates as work progresses.
+    Completion collapses to a summary card with action buttons. This is the
+    Cursor-style task panel pattern, ported into Slack. Try the four scenarios
+    below — every button, menu item, and modal is wired up.
+  </p>
+  <p class="who"><strong>Spec source:</strong> <code>ai-employee/docs/loading-ux-cursor.html</code> · <strong>This chapter:</strong> the same UX, adapted for RapidusSquad's Acme context, kept interactive.</p>
+
+  <div class="compare-note">
+    <strong>Why this chapter exists.</strong> Chapters 3, 4, and the elevator pitch render Casey's progress as a stream of separate messages — a useful pattern for the split-pane <em>"see what Casey is doing inside the sandbox"</em> story. This chapter shows the <strong>actual production UX</strong>: one collapsing message per task, with action affordances. Both patterns will likely ship — sandbox-visible mode (for power users / on-call admins) and the canonical pattern (for everyone else). The frontend agent builds this one first.
+  </div>
+
+  <div class="scenarios">
+    <button class="active" data-scenario="bugfix">Bug fix</button>
+    <button data-scenario="qa">Run QA</button>
+    <button data-scenario="lookup">Quick lookup</button>
+    <button data-scenario="fail">Failure</button>
+    <div class="gap"></div>
+    <button class="replay" id="replayBtn">↻ Replay</button>
+  </div>
+
+  <div class="slack">
+    <div class="slack-header">
+      <span class="hash">#</span>
+      <span class="channel">engineering</span>
+      <span class="meta">· 16 members</span>
+    </div>
+    <div class="thread" id="thread"></div>
+    <div class="composer">
+      <div class="composer-input">Reply…</div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <h3>Try the interactivity</h3>
+    <ul>
+      <li>Click <strong>Cancel</strong> mid-run — status transitions to cancelled; the action bar swaps to <code>[Retry] [⋯]</code>.</li>
+      <li>Wait for completion, then click the <strong>⋯</strong> overflow menu — every item is wired (Follow-up, Re-run, Request ID, Feedback, Delete).</li>
+      <li>Click <strong>Follow-up</strong> from the menu — an input appears so you can add instructions; Send re-runs the scenario.</li>
+      <li>Click <strong>Feedback</strong> — opens a real modal with thumbs up/down + text field.</li>
+      <li>Click <strong>Request ID</strong> — copies a fake request ID to clipboard (toast confirms).</li>
+      <li>Click <strong>Delete</strong> — the bot message visually deletes (greys + strikethrough).</li>
+      <li>Click <strong>View PR #1306</strong> or <strong>View logs</strong> — opens a modal with the relevant content.</li>
+      <li>Top-row scenario buttons swap to different prompts with different TodoWrite checklists.</li>
+    </ul>
+  </div>
+
+  <div class="pager">
+    <a href="07-incident.html">← Chapter 7: incident</a>
+    <a class="home" href="index.html">Tour home</a>
+    <a href="elevator.html">Elevator pitch →</a>
+  </div>
+</main>
+
+<div class="toast" id="toast">
+  <div class="ttl" id="toastTitle"></div>
+  <div id="toastBody"></div>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-head">
+      <span id="modalTitle"></span>
+      <button id="modalClose">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const scenarios = {
+    bugfix: {
+      promptUser: 'alice', promptUserAv: 'alice',
+      prompt: '@casey LIN-870 is the flaky stripe webhook test. pretty sure it\'s a sleep race. can you fix it and open a PR?',
+      branch: 'casey/lin-870-fix-flaky-webhook-test',
+      summary: {
+        label: 'Summary',
+        body: 'Root cause was a 500ms sleep in test_disputes() racing with the receiver. Replaced with an event-driven wait on receiver.idle(). Re-ran 50× — passed 50/50.',
+        footer: 'PR #1306 opened on acme/api · trusted-author mode · branch protection on main still gates the merge.',
+      },
+      result: 'complete',
+      pr: 1306,
+      snapshots: [
+        { at: 800,  list: [
+          ['Read LIN-870 and locate the failing test', 'in_progress'],
+        ]},
+        { at: 2400, list: [
+          ['Read LIN-870 and locate the failing test', 'completed'],
+          ['Reproduce flake locally (10× run)', 'in_progress'],
+          ['Patch the race in webhook_receiver.py + test', 'pending'],
+          ['Verify with 50× rerun + lint + typecheck', 'pending'],
+          ['Open PR on casey/lin-870-fix-flaky-webhook-test', 'pending'],
+        ]},
+        { at: 4800, list: [
+          ['Read LIN-870 and locate the failing test', 'completed'],
+          ['Reproduce flake locally (10× run)', 'completed'],
+          ['Patch the race in webhook_receiver.py + test', 'in_progress'],
+          ['Verify with 50× rerun + lint + typecheck', 'pending'],
+          ['Open PR on casey/lin-870-fix-flaky-webhook-test', 'pending'],
+        ]},
+        { at: 7200, list: [
+          ['Read LIN-870 and locate the failing test', 'completed'],
+          ['Reproduce flake locally (10× run)', 'completed'],
+          ['Patch the race in webhook_receiver.py + test', 'completed'],
+          ['Verify with 50× rerun + lint + typecheck', 'in_progress'],
+          ['Open PR on casey/lin-870-fix-flaky-webhook-test', 'pending'],
+        ]},
+        { at: 10500, list: [
+          ['Read LIN-870 and locate the failing test', 'completed'],
+          ['Reproduce flake locally (10× run)', 'completed'],
+          ['Patch the race in webhook_receiver.py + test', 'completed'],
+          ['Verify with 50× rerun + lint + typecheck', 'completed'],
+          ['Open PR on casey/lin-870-fix-flaky-webhook-test', 'in_progress'],
+        ]},
+        { at: 12500, list: [
+          ['Read LIN-870 and locate the failing test', 'completed'],
+          ['Reproduce flake locally (10× run)', 'completed'],
+          ['Patch the race in webhook_receiver.py + test', 'completed'],
+          ['Verify with 50× rerun + lint + typecheck', 'completed'],
+          ['Open PR on casey/lin-870-fix-flaky-webhook-test', 'completed'],
+        ]},
+        { at: 13000, stage: 'complete' },
+      ],
+    },
+
+    qa: {
+      promptUser: 'hassan', promptUserAv: 'hassan',
+      prompt: '@casey run /qa on the personas module',
+      branch: 'casey/qa-personas',
+      summary: {
+        label: 'QA report',
+        body: 'Ran the personas module end-to-end with Playwright + API tests. 12 happy-path tests passed. 1 issue found — /api/personas/{id} returns 500 when accessed by a different tenant (should be 404).',
+        footer: 'Filed as LIN-915. No PR opened (read-only QA pass). Trace artifacts saved in the sandbox.',
+      },
+      result: 'complete',
+      pr: null,
+      snapshots: [
+        { at: 1200, list: [
+          ['Spawn QA agents (UI + API + admin)', 'in_progress'],
+        ]},
+        { at: 3000, list: [
+          ['Spawn QA agents (UI + API + admin)', 'completed'],
+          ['Run UI golden-path tests (Playwright)', 'in_progress'],
+          ['Run API contract tests', 'pending'],
+          ['Run admin-route tests', 'pending'],
+        ]},
+        { at: 6500, list: [
+          ['Spawn QA agents (UI + API + admin)', 'completed'],
+          ['Run UI golden-path tests (Playwright)', 'completed'],
+          ['Run API contract tests', 'in_progress'],
+          ['Run admin-route tests', 'pending'],
+        ]},
+        { at: 9500, list: [
+          ['Spawn QA agents (UI + API + admin)', 'completed'],
+          ['Run UI golden-path tests (Playwright)', 'completed'],
+          ['Run API contract tests', 'completed'],
+          ['Run admin-route tests', 'in_progress'],
+        ]},
+        { at: 11500, list: [
+          ['Spawn QA agents (UI + API + admin)', 'completed'],
+          ['Run UI golden-path tests (Playwright)', 'completed'],
+          ['Run API contract tests', 'completed'],
+          ['Run admin-route tests', 'completed'],
+        ]},
+        { at: 12000, stage: 'complete' },
+      ],
+    },
+
+    lookup: {
+      promptUser: 'alice', promptUserAv: 'alice',
+      prompt: '@casey what does persona_service.embed_post do?',
+      branch: null,
+      summary: {
+        label: 'Answer',
+        body: 'embed_post takes a post body, calls the configured embedding provider (sentence-transformers/MiniLM-L6-v2 by default, or OpenAI text-embedding-3-small), and writes the resulting vector to either the embedding (384-dim) or embedding_1536 column on the posts table.',
+        footer: 'Defined in backend/app/services/persona_service.py:42.',
+      },
+      result: 'complete',
+      pr: null,
+      snapshots: [
+        { at: 400,  substatus: 'Reading persona_service.py…' },
+        { at: 2800, substatus: 'Cross-referencing the embedding provider config…' },
+        { at: 4800, substatus: 'Composing answer…' },
+        { at: 6000, stage: 'complete' },
+      ],
+    },
+
+    fail: {
+      promptUser: 'alice', promptUserAv: 'alice',
+      prompt: '@casey fix tenant isolation in the personas module',
+      branch: 'casey/persona-tenant-fix',
+      summary: {
+        label: 'Error',
+        body: 'pytest -k tenant_isolation failed after the patch: 2 tests broke. The fix introduced a regression in /api/personas/{id}/posts ordering. Rolling back changes to the sandbox workspace.',
+        footer: 'No PR opened. Sandbox workspace reverted. Full trace and the attempted diff are in the logs.',
+      },
+      result: 'failed',
+      pr: null,
+      snapshots: [
+        { at: 800,  list: [
+          ['Scan persona_routes.py for missing company_id filters', 'in_progress'],
+        ]},
+        { at: 2500, list: [
+          ['Scan persona_routes.py for missing company_id filters', 'completed'],
+          ['Patch the 3 unfiltered endpoints', 'in_progress'],
+          ['Run pytest -k tenant_isolation', 'pending'],
+        ]},
+        { at: 5000, list: [
+          ['Scan persona_routes.py for missing company_id filters', 'completed'],
+          ['Patch the 3 unfiltered endpoints', 'completed'],
+          ['Run pytest -k tenant_isolation', 'in_progress'],
+        ]},
+        { at: 7500, list: [
+          ['Scan persona_routes.py for missing company_id filters', 'completed'],
+          ['Patch the 3 unfiltered endpoints', 'completed'],
+          ['Run pytest -k tenant_isolation', 'in_progress'],
+          ['Detected regression in 2 tests — rolling back', 'in_progress'],
+        ]},
+        { at: 9000, stage: 'failed' },
+      ],
+    },
+  };
+
+  // --- DOM refs ---
+  const thread = document.getElementById('thread');
+  const replayBtn = document.getElementById('replayBtn');
+  const scenarioBtns = document.querySelectorAll('.scenarios button[data-scenario]');
+  const toast = document.getElementById('toast');
+  const toastTitle = document.getElementById('toastTitle');
+  const toastBody = document.getElementById('toastBody');
+  const modal = document.getElementById('modal');
+  const modalTitle = document.getElementById('modalTitle');
+  const modalBody = document.getElementById('modalBody');
+  const modalFoot = document.getElementById('modalFoot');
+  const modalClose = document.getElementById('modalClose');
+
+  // --- State ---
+  let currentScenario = 'bugfix';
+  let timers = [];
+  let currentStage = 'idle';
+  let statusBody = null;
+  let statusHeader = null;
+  let actionBar = null;
+  let casey = null;
+  let scenarioStart = 0;
+
+  // --- Helpers ---
+  const el = (tag, opts = {}, ...kids) => {
+    const n = document.createElement(tag);
+    if (opts.cls) n.className = opts.cls;
+    if (opts.id) n.id = opts.id;
+    if (opts.text != null) n.textContent = opts.text;
+    if (opts.attrs) for (const k in opts.attrs) n.setAttribute(k, opts.attrs[k]);
+    if (opts.style) for (const k in opts.style) n.style[k] = opts.style[k];
+    for (const c of kids) { if (c != null) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); }
+    return n;
+  };
+  const clear = (node) => { while (node.firstChild) node.removeChild(node.firstChild); };
+  const setText = (node, text) => { while (node.firstChild) node.removeChild(node.firstChild); node.appendChild(document.createTextNode(text)); };
+
+  function showToast(title, body) {
+    setText(toastTitle, title);
+    setText(toastBody, body);
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+
+  function showModal(title, bodyBuilder, footerBuilder) {
+    setText(modalTitle, title);
+    clear(modalBody);
+    bodyBuilder(modalBody);
+    clear(modalFoot);
+    if (footerBuilder) footerBuilder(modalFoot);
+    modal.classList.add('show');
+  }
+  modalClose.addEventListener('click', () => modal.classList.remove('show'));
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
+
+  function clearTimers() { timers.forEach(t => clearTimeout(t)); timers = []; }
+
+  function buildUserMsg(scenario) {
+    const u = scenario.promptUser;
+    const m = el('div', { cls: 'msg' });
+    m.appendChild(el('div', { cls: 'avatar ' + scenario.promptUserAv, text: u[0].toUpperCase() }));
+    const right = el('div', { cls: 'body' });
+    const metaRow = el('div', { cls: 'meta-row' });
+    metaRow.appendChild(el('span', { cls: 'name', text: u === 'alice' ? 'Alice Park' : u === 'hassan' ? 'Hassan Mehmood' : u }));
+    metaRow.appendChild(el('span', { cls: 'time', text: '14:18' }));
+    right.appendChild(metaRow);
+    right.appendChild(el('div', { cls: 'text', text: scenario.prompt }));
+    m.appendChild(right);
+    return m;
+  }
+
+  function buildCaseyMsg(scenario) {
+    const m = el('div', { cls: 'msg', id: 'casey-msg' });
+    m.appendChild(el('div', { cls: 'avatar bot', text: 'C' }));
+    const right = el('div', { cls: 'body' });
+    const metaRow = el('div', { cls: 'meta-row' });
+    metaRow.appendChild(el('span', { cls: 'name', text: 'Casey' }));
+    metaRow.appendChild(el('span', { cls: 'app', text: 'APP' }));
+    metaRow.appendChild(el('span', { cls: 'time', text: '14:18' }));
+    right.appendChild(metaRow);
+
+    // Status block
+    const block = el('div', { cls: 'status-block', id: 'status-block' });
+    const header = el('div', { cls: 'status-header expanded', id: 'status-header' });
+    const icon = el('div', { cls: 'status-icon working', id: 'status-icon' });
+    header.appendChild(icon);
+    const label = el('span', { cls: 'status-label', id: 'status-label', text: 'Working…' });
+    header.appendChild(label);
+    if (scenario.branch) {
+      const branch = el('span', { cls: 'status-meta' });
+      branch.appendChild(document.createTextNode(' · '));
+      branch.appendChild(el('span', { cls: 'branch', text: scenario.branch }));
+      header.appendChild(branch);
+    }
+    const cancel = el('button', { cls: 'status-cancel', id: 'cancel-btn', text: 'Cancel' });
+    cancel.addEventListener('click', (e) => { e.stopPropagation(); cancelRun(); });
+    header.appendChild(cancel);
+    const chev = el('span', { cls: 'status-chevron', text: '▾' });
+    header.appendChild(chev);
+    header.addEventListener('click', toggleStatusBody);
+    block.appendChild(header);
+
+    const body = el('div', { cls: 'status-body', id: 'status-body' });
+    block.appendChild(body);
+    right.appendChild(block);
+
+    m.appendChild(right);
+    return m;
+  }
+
+  function toggleStatusBody() {
+    const body = document.getElementById('status-body');
+    const header = document.getElementById('status-header');
+    if (!body || !header) return;
+    body.classList.toggle('collapsed');
+    header.classList.toggle('expanded');
+  }
+
+  function renderChecklist(list) {
+    const body = document.getElementById('status-body');
+    if (!body) return;
+    clear(body);
+    const ul = el('ul', { cls: 'todo-list' });
+    for (const [text, status] of list) {
+      const li = el('li', { cls: 'todo-item ' + status });
+      li.appendChild(el('div', { cls: 'todo-mark ' + status }));
+      li.appendChild(el('div', { cls: 'todo-text', text }));
+      ul.appendChild(li);
+    }
+    body.appendChild(ul);
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  function renderSubstatus(text) {
+    const body = document.getElementById('status-body');
+    if (!body) return;
+    clear(body);
+    body.appendChild(el('div', { cls: 'substatus fade-in', text }));
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  function setStage(stage, scenario) {
+    currentStage = stage;
+    const icon = document.getElementById('status-icon');
+    const label = document.getElementById('status-label');
+    const cancelBtn = document.getElementById('cancel-btn');
+    const headerEl = document.getElementById('status-header');
+    const body = document.getElementById('status-body');
+    if (!icon) return;
+    icon.className = 'status-icon ' + stage;
+    setText(label, stage === 'complete' ? 'Completed' : stage === 'cancelled' ? 'Cancelled' : stage === 'failed' ? 'Failed' : 'Working…');
+    if (cancelBtn && stage !== 'working') cancelBtn.remove();
+    // collapse status body on completion
+    if (stage !== 'working') {
+      body.classList.add('collapsed');
+      headerEl.classList.remove('expanded');
+    }
+
+    // Build summary card + action bar
+    const caseyRight = document.querySelector('#casey-msg .body');
+    if (!caseyRight) return;
+    // Remove existing summary / actions
+    const existing = caseyRight.querySelector('.summary-card');
+    if (existing) existing.remove();
+    const existingBar = caseyRight.querySelector('.action-bar');
+    if (existingBar) existingBar.remove();
+    const existingFu = caseyRight.querySelector('.followup');
+    if (existingFu) existingFu.remove();
+
+    if (stage === 'complete' || stage === 'failed') {
+      const card = el('div', { cls: 'summary-card' + (stage === 'failed' ? ' failed' : '') });
+      card.appendChild(el('div', { cls: 'label', text: scenario.summary.label }));
+      card.appendChild(el('div', { cls: 'body-text', text: scenario.summary.body }));
+      if (scenario.summary.footer) {
+        const ft = el('div', { cls: 'footer-text' });
+        ft.appendChild(document.createTextNode(scenario.summary.footer));
+        card.appendChild(ft);
+      }
+      caseyRight.appendChild(card);
+    }
+
+    const bar = el('div', { cls: 'action-bar' });
+    if (stage === 'complete' && scenario.pr) {
+      const btn = el('button', { cls: 'action-btn primary', text: '↗ View PR #' + scenario.pr });
+      btn.addEventListener('click', () => openPRModal(scenario));
+      bar.appendChild(btn);
+    }
+    if (stage === 'complete' || stage === 'failed') {
+      const logsBtn = el('button', { cls: 'action-btn', text: '📋 View logs' });
+      logsBtn.addEventListener('click', () => openLogsModal(scenario));
+      bar.appendChild(logsBtn);
+    }
+    if (stage === 'cancelled') {
+      const retryBtn = el('button', { cls: 'action-btn primary', text: '↻ Retry' });
+      retryBtn.addEventListener('click', () => runScenario(currentScenario));
+      bar.appendChild(retryBtn);
+    }
+
+    // Overflow menu
+    const ov = el('div', { cls: 'overflow-menu' });
+    const ovBtn = el('button', { cls: 'action-btn icon', text: '⋯' });
+    const ovDrop = el('div', { cls: 'overflow-dropdown' });
+    const items = [
+      { label: '↳ Follow-up', action: () => toggleFollowup() },
+      { label: '↻ Re-run', action: () => runScenario(currentScenario) },
+      { label: '# Copy request ID', action: () => copyRequestId() },
+      { label: '💬 Feedback', action: () => openFeedbackModal() },
+      { divider: true },
+      { label: '🗑 Delete', danger: true, action: () => deleteMessage() },
+    ];
+    for (const item of items) {
+      if (item.divider) { ovDrop.appendChild(el('div', { cls: 'overflow-divider' })); continue; }
+      const it = el('div', { cls: 'overflow-item' + (item.danger ? ' danger' : ''), text: item.label });
+      it.addEventListener('click', () => { ovDrop.classList.remove('show'); item.action(); });
+      ovDrop.appendChild(it);
+    }
+    ovBtn.addEventListener('click', (e) => { e.stopPropagation(); ovDrop.classList.toggle('show'); });
+    document.addEventListener('click', () => ovDrop.classList.remove('show'));
+    ov.appendChild(ovBtn);
+    ov.appendChild(ovDrop);
+    bar.appendChild(ov);
+
+    caseyRight.appendChild(bar);
+
+    // Followup container (hidden)
+    const fu = el('div', { cls: 'followup', id: 'followup' });
+    const input = el('input', { attrs: { type: 'text', placeholder: 'Add instructions for the re-run…', value: 'also add a regression test for this case' } });
+    fu.appendChild(input);
+    const row = el('div', { cls: 'row' });
+    const cancelFu = el('button', { cls: 'action-btn', text: 'Cancel' });
+    cancelFu.addEventListener('click', toggleFollowup);
+    const sendFu = el('button', { cls: 'action-btn primary', text: 'Send' });
+    sendFu.addEventListener('click', () => { toggleFollowup(); runScenario(currentScenario); showToast('Re-running', 'Followup applied: "' + input.value + '"'); });
+    row.appendChild(cancelFu);
+    row.appendChild(sendFu);
+    fu.appendChild(row);
+    caseyRight.appendChild(fu);
+  }
+
+  function toggleFollowup() {
+    const fu = document.getElementById('followup');
+    if (fu) fu.classList.toggle('show');
+  }
+
+  function copyRequestId() {
+    const id = 'req_' + Math.random().toString(36).slice(2, 10);
+    const t = el('textarea', { attrs: { readonly: 'readonly' }, style: { position: 'fixed', opacity: '0' } });
+    t.value = id;
+    document.body.appendChild(t);
+    t.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(t);
+    showToast('Copied', 'Request ID ' + id + ' copied to clipboard.');
+  }
+
+  function deleteMessage() {
+    const m = document.getElementById('casey-msg');
+    if (m) m.classList.add('deleted');
+    showToast('Deleted', 'Casey\'s message was removed from this thread.');
+  }
+
+  function openPRModal(scenario) {
+    showModal('Pull request · acme/api #' + scenario.pr, (b) => {
+      b.appendChild(el('div', { text: scenario.summary.body, style: { marginBottom: '12px' } }));
+      const pre = el('pre');
+      pre.appendChild(document.createTextNode(`diff --git a/app/webhook_receiver.py b/app/webhook_receiver.py
++   self._idle = asyncio.Event()
++   async def idle(self):
++       await self._idle.wait()
+
+diff --git a/tests/integration/test_stripe_webhook.py b/tests/...
+-   await asyncio.sleep(0.5)
++   await receiver.idle()`));
+      b.appendChild(pre);
+      b.appendChild(el('div', { text: 'Branch: ' + scenario.branch + ' → main · CI: queued', style: { color: 'var(--slack-mute)', fontSize: '12.5px', marginTop: '10px' } }));
+    }, (f) => {
+      const c = el('button', { cls: 'action-btn', text: 'Close' });
+      c.addEventListener('click', () => modal.classList.remove('show'));
+      f.appendChild(c);
+      const o = el('button', { cls: 'action-btn primary', text: 'Open on GitHub ↗' });
+      o.addEventListener('click', () => { showToast('Mock', 'In production this opens github.com/acme/api/pull/' + scenario.pr); modal.classList.remove('show'); });
+      f.appendChild(o);
+    });
+  }
+
+  function openLogsModal(scenario) {
+    showModal('Run logs · t_a91f44', (b) => {
+      const pre = el('pre');
+      pre.appendChild(document.createTextNode(`[14:18:14] turn.start  alice → "${scenario.prompt}"
+[14:18:14] tool.call    github-mcp.search_code(LIN-870)
+[14:18:15] sandbox.run  git clone --depth=1 file:///cache/acme-api
+[14:18:15] sandbox.run  pytest ...::test_disputes --count=10
+[14:18:23] sandbox.out  [PASS 8, FAIL 2] — confirmed flake
+[14:18:25] sandbox.run  ruff check app/ tests/
+[14:18:25] sandbox.out  All checks passed.
+[14:18:26] sandbox.run  mypy app/
+[14:18:27] sandbox.out  Success: no issues found
+[14:18:28] sandbox.run  pytest ... --count=50
+[14:18:40] sandbox.out  50 passed in 12.4s
+[14:18:40] sandbox.run  git commit + handoff_patch(...)
+[14:18:41] github-mcp   open_pull_request(... ) → #1306
+[14:18:41] turn.complete  ok · 27.3s · 14 sandbox calls`));
+      b.appendChild(pre);
+    }, (f) => {
+      const c = el('button', { cls: 'action-btn', text: 'Close' });
+      c.addEventListener('click', () => modal.classList.remove('show'));
+      f.appendChild(c);
+      const d = el('button', { cls: 'action-btn primary', text: 'Download as JSONL' });
+      d.addEventListener('click', () => { showToast('Mock', 'In production this downloads the run trace.'); modal.classList.remove('show'); });
+      f.appendChild(d);
+    });
+  }
+
+  function openFeedbackModal() {
+    let choice = null;
+    showModal('Feedback on this run', (b) => {
+      const row = el('div', { cls: 'feedback-row' });
+      const up = el('button', { cls: 'fb-btn', text: '👍' });
+      const down = el('button', { cls: 'fb-btn', text: '👎' });
+      up.addEventListener('click', () => { choice = 'up'; up.classList.add('selected'); down.classList.remove('selected'); });
+      down.addEventListener('click', () => { choice = 'down'; down.classList.add('selected'); up.classList.remove('selected'); });
+      row.appendChild(up); row.appendChild(down);
+      b.appendChild(row);
+      b.appendChild(el('div', { text: 'Tell us more (optional):', style: { color: 'var(--slack-mute)', fontSize: '13px', marginBottom: '6px' } }));
+      b.appendChild(el('textarea', { attrs: { placeholder: 'What worked? What didn\'t?' } }));
+    }, (f) => {
+      const c = el('button', { cls: 'action-btn', text: 'Cancel' });
+      c.addEventListener('click', () => modal.classList.remove('show'));
+      f.appendChild(c);
+      const s = el('button', { cls: 'action-btn primary', text: 'Submit' });
+      s.addEventListener('click', () => {
+        modal.classList.remove('show');
+        showToast('Thanks', choice === 'up' ? 'Logged 👍 — Casey learns from these.' : choice === 'down' ? 'Logged 👎 — we\'ll review what went wrong.' : 'Feedback recorded.');
+      });
+      f.appendChild(s);
+    });
+  }
+
+  function cancelRun() {
+    clearTimers();
+    const scenario = scenarios[currentScenario];
+    setStage('cancelled', scenario);
+    showToast('Cancelled', 'Casey stopped what it was doing.');
+  }
+
+  function runScenario(name) {
+    clearTimers();
+    currentScenario = name;
+    scenarioBtns.forEach(b => b.classList.toggle('active', b.dataset.scenario === name));
+    const scenario = scenarios[name];
+    clear(thread);
+    thread.appendChild(buildUserMsg(scenario));
+    thread.appendChild(buildCaseyMsg(scenario));
+    scenarioStart = Date.now();
+    for (const snap of scenario.snapshots) {
+      timers.push(setTimeout(() => {
+        if (snap.list) renderChecklist(snap.list);
+        if (snap.substatus) renderSubstatus(snap.substatus);
+        if (snap.stage) setStage(snap.stage, scenario);
+      }, snap.at));
+    }
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  scenarioBtns.forEach(b => b.addEventListener('click', () => runScenario(b.dataset.scenario)));
+  replayBtn.addEventListener('click', () => runScenario(currentScenario));
+
+  // Auto-start
+  runScenario('bugfix');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Casey — Proposed Loading UX Demo</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #f4f4f5;
+    --panel: #ffffff;
+    --line: #e3e3e5;
+    --ink: #1d1c1d;
+    --mute: #616061;
+    --muteLighter: #868686;
+    --blue: #1264a3;
+    --green: #2eb67d;
+    --accent: #007a5a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    padding: 24px;
+  }
+  .page-title {
+    max-width: 1100px;
+    margin: 0 auto 18px;
+    font-size: 14px;
+    color: var(--mute);
+  }
+  .page-title strong { color: var(--ink); }
+  .page-title .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #ecf6f1;
+    color: var(--accent);
+    font-weight: 600;
+    margin-left: 4px;
+    font-size: 12px;
+  }
+  .row {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  @media (max-width: 900px) { .row { grid-template-columns: 1fr; } }
+  .col-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mute);
+    margin: 0 0 8px 4px;
+  }
+  .col-title .badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .badge.old { background: #fef1f1; color: #b3261e; }
+  .badge.new { background: #ecf6f1; color: var(--accent); }
+  .slack {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 620px;
+  }
+  .slack header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    font-weight: 700;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .slack header .ch { color: var(--mute); font-weight: 500; }
+  .thread {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px 4px;
+  }
+  .msg {
+    display: flex;
+    gap: 10px;
+    padding: 6px 0;
+    align-items: flex-start;
+  }
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .avatar.bot { background: linear-gradient(135deg, #7c3aed, #4f46e5); }
+  .avatar.user { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+  .meta {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    font-size: 13px;
+  }
+  .meta .name { font-weight: 700; }
+  .meta .app {
+    background: var(--line);
+    color: var(--mute);
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .meta .time { color: var(--mute); font-size: 12px; }
+  .text {
+    margin-top: 2px;
+    font-size: 14px;
+    color: var(--ink);
+    white-space: pre-wrap;
+  }
+  .mention { color: var(--blue); }
+  code {
+    background: #f4f4f5;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px;
+  }
+
+  .old-status-text,
+  .new-status-text {
+    color: var(--mute);
+    font-style: italic;
+    transition: opacity 0.18s ease;
+  }
+
+  /* Slack-native footer indicator (proposed) */
+  .footer-status {
+    border-top: 1px solid var(--line);
+    padding: 6px 16px;
+    font-size: 13px;
+    color: var(--mute);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    background: #fafafa;
+    transition: opacity 0.2s;
+  }
+  .footer-status.hidden { opacity: 0; visibility: hidden; }
+  .footer-status .dot {
+    width: 6px;
+    height: 6px;
+    background: var(--mute);
+    border-radius: 50%;
+    animation: pulse 1.2s infinite;
+  }
+  .footer-status .dot:nth-child(2) { animation-delay: 0.2s; }
+  .footer-status .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.9); }
+    40% { opacity: 1; transform: scale(1.1); }
+  }
+  .footer-status .label { margin-left: 4px; }
+  .composer {
+    border-top: 1px solid var(--line);
+    padding: 10px 14px 14px;
+  }
+  .composer-input {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--muteLighter);
+    font-size: 13px;
+  }
+  .reply-text {
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .reply-text.visible { opacity: 1; }
+  .controls {
+    max-width: 1100px;
+    margin: 18px auto 0;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 13px;
+    color: var(--mute);
+  }
+  .controls button {
+    background: var(--ink);
+    color: #fff;
+    border: 0;
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .controls button:hover { background: #000; }
+  .controls .stage-indicator {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px;
+    background: #fff;
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .annotation {
+    max-width: 1100px;
+    margin: 18px auto 0;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .annotation h3 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mute);
+  }
+  .annotation ul { margin: 0; padding-left: 18px; }
+  .annotation li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<div class="page-title">
+  <strong>Casey — Loading UX</strong> <span class="pill">side-by-side demo</span><br/>
+  Left: what Casey shows today. Right: proposed (tool-aware inline status + Slack-native footer).
+</div>
+
+<div class="row">
+
+  <div>
+    <div class="col-title">Today <span class="badge old">CURRENT</span></div>
+    <div class="slack">
+      <header><span>📝</span> Thread <span class="ch">in #ai-employee</span></header>
+      <div class="thread" id="oldThread">
+        <div class="msg">
+          <div class="avatar user">H</div>
+          <div>
+            <div class="meta">
+              <span class="name">Hassan Mehmood</span>
+              <span class="time">3:21 PM</span>
+            </div>
+            <div class="text"><span class="mention">@Casey</span> can you check the persona module for tenant isolation issues?</div>
+          </div>
+        </div>
+
+        <div class="msg" id="oldStatusMsg">
+          <div class="avatar bot">C</div>
+          <div>
+            <div class="meta">
+              <span class="name">Casey</span>
+              <span class="app">APP</span>
+              <span class="time">3:21 PM</span>
+            </div>
+            <div class="text"><span class="old-status-text" id="oldStatusText">🤔 Thinking</span></div>
+          </div>
+        </div>
+
+        <div class="msg" id="oldFinalReply" style="display:none">
+          <div class="avatar bot">C</div>
+          <div>
+            <div class="meta">
+              <span class="name">Casey</span>
+              <span class="app">APP</span>
+              <span class="time">3:22 PM</span>
+            </div>
+            <div class="text">Found 3 endpoints missing the <code>company_id</code> filter in <code>persona_routes.py</code>. Opening a draft PR on <code>bot/persona-tenant-fix</code>.</div>
+          </div>
+        </div>
+
+        <div class="msg" id="oldCompletedMsg" style="display:none">
+          <div class="avatar bot">C</div>
+          <div>
+            <div class="meta">
+              <span class="name">Casey</span>
+              <span class="app">APP</span>
+              <span class="time">3:22 PM</span>
+            </div>
+            <div class="text" style="color: var(--green);">✅ Task completed</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="composer-input">Reply…</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="col-title">Proposed <span class="badge new">DEMO</span></div>
+    <div class="slack">
+      <header><span>📝</span> Thread <span class="ch">in #rapidus-squad</span></header>
+      <div class="thread" id="newThread">
+        <div class="msg">
+          <div class="avatar user">H</div>
+          <div>
+            <div class="meta">
+              <span class="name">Hassan Mehmood</span>
+              <span class="time">3:21 PM</span>
+            </div>
+            <div class="text"><span class="mention">@Casey</span> can you check the persona module for tenant isolation issues?</div>
+          </div>
+        </div>
+
+        <div class="msg" id="newReplyMsg">
+          <div class="avatar bot">C</div>
+          <div>
+            <div class="meta">
+              <span class="name">Casey</span>
+              <span class="app">APP</span>
+              <span class="time">3:21 PM</span>
+            </div>
+            <div class="text">
+              <span class="new-status-text" id="newStatusText">Analysing the request…</span>
+              <span class="reply-text" id="newReplyText">Found 3 endpoints missing the <code>company_id</code> filter in <code>persona_routes.py</code>. Opening a draft PR on <code>bot/persona-tenant-fix</code>.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-status" id="newFooter">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="label" id="newFooterLabel">Casey is thinking…</span>
+      </div>
+
+      <div class="composer">
+        <div class="composer-input">Reply…</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="controls">
+  <button id="playBtn">▶ Replay</button>
+  <span>Stage:</span>
+  <span class="stage-indicator" id="stageLabel">idle</span>
+  <span style="margin-left:auto">Auto-loops every 13s</span>
+</div>
+
+<div class="annotation">
+  <h3>What's different in the proposed version</h3>
+  <ul>
+    <li><strong>Tool-aware inline status</strong> — Casey edits ONE message with text that reflects what the agent is doing right now (Reading code…, Searching the codebase…, Writing changes…) instead of a generic Thinking… animation.</li>
+    <li><strong>Slack-native footer indicator</strong> — <code>assistant.threads.setStatus</code> shows "Casey is thinking…" right above the composer. Always visible while work is in flight, disappears the instant Casey replies — no cleanup needed.</li>
+    <li><strong>No "Task completed" message</strong> — the placeholder transitions directly into the final reply, eliminating one chat message. Cleaner thread.</li>
+    <li><strong>Status updates driven by stream events</strong> — every tool-use event coming through stream-json maps to a status string. No timers, no guesses about which phase we're in.</li>
+  </ul>
+</div>
+
+<script>
+(() => {
+  const phases = [
+    { ms: 0,     status: 'Analysing the request…',         footer: 'Casey is thinking…',        stage: 'analysing' },
+    { ms: 1800,  status: '📖 Reading code…',                footer: 'Casey is reading files…',    stage: 'read' },
+    { ms: 3800,  status: '🔍 Searching the codebase…',      footer: 'Casey is searching…',        stage: 'grep' },
+    { ms: 6000,  status: '📝 Planning the fix…',            footer: 'Casey is planning…',         stage: 'todowrite' },
+    { ms: 8000,  status: '✏️ Writing changes…',              footer: 'Casey is writing changes…',  stage: 'edit' },
+    { ms: 10000, status: 'final',                          footer: '',                           stage: 'reply' },
+  ];
+  const oldFrames = ['🤔 Thinking', '💭 Thinking.', '💭 Thinking..', '💭 Thinking...'];
+
+  const NEW_STATUS = document.getElementById('newStatusText');
+  const NEW_REPLY  = document.getElementById('newReplyText');
+  const NEW_FOOTER = document.getElementById('newFooter');
+  const NEW_FOOTER_LABEL = document.getElementById('newFooterLabel');
+  const OLD_STATUS_MSG  = document.getElementById('oldStatusMsg');
+  const OLD_STATUS_TEXT = document.getElementById('oldStatusText');
+  const OLD_FINAL  = document.getElementById('oldFinalReply');
+  const OLD_DONE   = document.getElementById('oldCompletedMsg');
+  const STAGE      = document.getElementById('stageLabel');
+  const PLAY       = document.getElementById('playBtn');
+
+  let timers = [];
+  let intervals = [];
+  let loopTimer = null;
+
+  function clearAll() {
+    timers.forEach(t => clearTimeout(t));
+    intervals.forEach(i => clearInterval(i));
+    timers = [];
+    intervals = [];
+  }
+
+  function reset() {
+    clearAll();
+    NEW_STATUS.style.display = '';
+    NEW_STATUS.textContent = 'Analysing the request…';
+    NEW_REPLY.classList.remove('visible');
+    NEW_FOOTER.classList.remove('hidden');
+    NEW_FOOTER_LABEL.textContent = 'Casey is thinking…';
+
+    OLD_STATUS_MSG.style.display = '';
+    OLD_STATUS_TEXT.textContent = '🤔 Thinking';
+    OLD_FINAL.style.display = 'none';
+    OLD_DONE.style.display = 'none';
+
+    STAGE.textContent = 'idle';
+  }
+
+  function play() {
+    reset();
+
+    let oldI = 1;
+    const oldCycle = setInterval(() => {
+      if (oldI >= oldFrames.length) oldI = 0;
+      OLD_STATUS_TEXT.textContent = oldFrames[oldI];
+      oldI++;
+    }, 600);
+    intervals.push(oldCycle);
+
+    timers.push(setTimeout(() => {
+      clearInterval(oldCycle);
+      OLD_STATUS_MSG.style.display = 'none';
+      OLD_FINAL.style.display = 'flex';
+      OLD_DONE.style.display = 'flex';
+    }, 10000));
+
+    phases.forEach(p => {
+      timers.push(setTimeout(() => {
+        STAGE.textContent = p.stage;
+        if (p.status === 'final') {
+          NEW_STATUS.style.display = 'none';
+          NEW_REPLY.classList.add('visible');
+          NEW_FOOTER.classList.add('hidden');
+        } else {
+          NEW_STATUS.style.display = '';
+          NEW_STATUS.textContent = p.status;
+          NEW_FOOTER_LABEL.textContent = p.footer;
+        }
+      }, p.ms));
+    });
+
+    loopTimer = setTimeout(play, 13000);
+    timers.push(loopTimer);
+  }
+
+  PLAY.addEventListener('click', () => play());
+  play();
+})();
+</script>
+
+</body>
+</html>

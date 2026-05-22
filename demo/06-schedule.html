@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter 6 — Scheduled digest</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #07090f; --bg-2: #0d1320; --panel: #111a2e;
+    --ink: #e7ecf5; --ink-2: #c3cee0; --mute: #7d8ba8;
+    --line: #1c2541; --line-2: #233055;
+    --accent: #79c0ff; --ok: #6ee7a8; --warn: #f5b461; --bad: #f47878;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); min-height: 100vh; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .top { max-width: 1280px; margin: 0 auto; padding: 28px 32px 0; display: flex; justify-content: space-between; font-size: 13px; color: var(--mute); }
+  .top a { color: var(--accent); text-decoration: none; }
+  .top .nav a { margin-left: 14px; }
+  main { max-width: 1280px; margin: 0 auto; padding: 24px 32px 96px; }
+  h1 { font-size: 30px; margin: 18px 0 6px; letter-spacing: -0.01em; }
+  .lede { color: var(--ink-2); max-width: 760px; margin: 0 0 8px; }
+  .who { color: var(--mute); font-size: 13px; margin-bottom: 30px; }
+  .who strong { color: var(--ink-2); }
+
+  .split { display: grid; grid-template-columns: 1.3fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
+
+  /* Slack */
+  .slack { background: #1a1d29; border: 1px solid #2b2a30; border-radius: 12px; overflow: hidden; display: grid; grid-template-columns: 70px 1fr; box-shadow: 0 12px 36px rgba(0,0,0,0.4); }
+  .ws-rail { background: #3f0e40; display: flex; flex-direction: column; align-items: center; padding: 16px 0; gap: 10px; }
+  .ws-rail .ws { width: 38px; height: 38px; border-radius: 8px; background: linear-gradient(135deg, #4a8fdc, #2b6cba); display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 14px; border: 2px solid white; }
+  .convo { background: white; display: flex; flex-direction: column; }
+  .convo .header { background: white; border-bottom: 1px solid #e8e8e8; padding: 12px 24px; }
+  .convo .header .title { font-weight: 800; color: #1d1c1d; font-size: 15px; }
+  .convo .header .meta { color: #616061; font-size: 13px; }
+  .convo .messages { flex: 1; padding: 22px 24px; }
+
+  .daydiv {
+    display: flex; align-items: center; gap: 12px; padding: 14px 0 6px;
+  }
+  .daydiv .line { flex: 1; height: 1px; background: #e8e8e8; }
+  .daydiv .lbl {
+    background: white; border: 1px solid #e8e8e8; border-radius: 999px;
+    padding: 4px 12px; font-size: 12px; color: #616061; font-weight: 700;
+  }
+
+  .msg { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 8px 0; }
+  .av { width: 36px; height: 36px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 14px; }
+  .av.casey { background: linear-gradient(135deg,#4a8fdc,#2b6cba); }
+  .head { display: flex; align-items: baseline; gap: 8px; }
+  .head .name { font-weight: 800; color: #1d1c1d; font-size: 15px; }
+  .head .app { background: #ddd; color: #444; font-size: 10px; padding: 1px 4px; border-radius: 2px; text-transform: uppercase; font-weight: 700; }
+  .head .time { color: #616061; font-size: 12px; }
+  .body { color: #1d1c1d; font-size: 14.5px; line-height: 1.55; }
+  .body code { background: #f4ede4; padding: 1px 4px; border-radius: 3px; color: #7c2d12; font-family: ui-monospace, monospace; font-size: 13px; }
+
+  .digest-card {
+    background: white; border-left: 4px solid #1264a3;
+    border-radius: 4px; padding: 12px 16px; margin-top: 4px;
+    border: 1px solid #e6e6e6; border-left: 4px solid #1264a3;
+  }
+  .digest-card .ttl { font-size: 15px; font-weight: 800; color: #1d1c1d; margin-bottom: 8px; }
+  .digest-card h5 { margin: 12px 0 4px; font-size: 13px; color: #616061; text-transform: uppercase; letter-spacing: 0.06em; }
+  .digest-card ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.7; color: #1d1c1d; }
+  .digest-card .pill { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; margin-right: 6px; }
+  .digest-card .pill.lin { background: #f5e9ff; color: #6b27a8; }
+  .digest-card .pill.gh { background: #e9ecef; color: #24292f; }
+  .digest-card .pill.done { background: #e6f7ee; color: #007a5a; }
+  .digest-card .pill.stale { background: #fdecec; color: #a31515; }
+  .digest-card .pill.new { background: #fff4d6; color: #8a5a00; }
+  .digest-card .foot { margin-top: 12px; color: #616061; font-size: 12.5px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
+  .digest-card .foot a { color: #1264a3; text-decoration: none; font-weight: 600; }
+
+  .reactions { display: flex; gap: 4px; margin-top: 6px; }
+  .reaction { display: inline-flex; align-items: center; gap: 4px; background: #f0f6fc; border: 1px solid #c8d8ec; padding: 2px 8px; border-radius: 12px; font-size: 12px; color: #1264a3; }
+
+  /* Right panel: schedule config */
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px;
+  }
+  .panel h3 { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); margin: 0 0 18px; font-weight: 700; }
+  .panel h3:not(:first-child) { margin-top: 26px; }
+  .field-row { display: grid; grid-template-columns: 100px 1fr; gap: 14px; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 13.5px; }
+  .field-row:last-child { border-bottom: none; }
+  .field-row .k { color: var(--mute); }
+  .field-row .v { color: var(--ink); }
+  .field-row .v code { background: var(--bg-2); padding: 1px 6px; border-radius: 3px; color: var(--accent); font-family: ui-monospace, monospace; font-size: 12px; }
+
+  .runs { padding: 0; }
+  .runs .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12.5px; border-bottom: 1px dashed var(--line); font-family: ui-monospace, monospace; }
+  .runs .row:last-child { border-bottom: none; }
+  .runs .row .t { color: var(--mute); }
+  .runs .row .s.ok { color: var(--ok); }
+  .runs .row .s.warn { color: var(--warn); }
+
+  .prompt-card {
+    background: #0a1226; border: 1px solid var(--line-2);
+    border-radius: 8px; padding: 12px 14px;
+    font-family: ui-monospace, monospace; font-size: 12.5px;
+    color: var(--ink-2); line-height: 1.7;
+  }
+
+  .note {
+    background: rgba(110,231,168,0.06); border: 1px solid rgba(110,231,168,0.25);
+    border-radius: 8px; padding: 10px 14px; color: var(--ink-2); font-size: 13px; margin-top: 16px;
+  }
+  .note strong { color: var(--ok); }
+
+  .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 50px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13px; }
+  .pager a { color: var(--accent); text-decoration: none; }
+  .pager .home { color: var(--mute); }
+</style>
+</head>
+<body>
+<div class="top">
+  <a href="05-admin-ui.html">← Chapter 5</a>
+  <div class="nav">
+    <span style="color:var(--mute)">Chapter 6 of 7</span>
+    <a href="07-incident.html">Next: incident →</a>
+  </div>
+</div>
+<main>
+  <h1>Daily standup digest fires at 09:00</h1>
+  <p class="lede">
+    Day 7. Nobody triggers Casey. <code>#standup</code> wakes up to a synthesized
+    digest of moved Linear tickets, mergeable PRs, and what's stale.
+    Configured once in the admin UI, runs forever — and skipped runs (e.g.,
+    Slack outage) notify Hassan instead of failing silently.
+  </p>
+  <p class="who"><strong>Trigger:</strong> node-cron · <code>0 9 * * 1-5 America/New_York</code> · <strong>Channel:</strong> #standup · <strong>Author:</strong> Casey (system turn)</p>
+
+  <div class="split">
+    <div class="slack">
+      <div class="ws-rail"><div class="ws">A</div></div>
+      <div class="convo">
+        <div class="header">
+          <div class="title"># standup</div>
+          <div class="meta">· 16 members · payments team</div>
+        </div>
+        <div class="messages">
+          <div class="daydiv"><div class="line"></div><div class="lbl">Tuesday, May 21</div><div class="line"></div></div>
+
+          <div class="msg">
+            <div class="av casey">C</div>
+            <div>
+              <div class="head"><span class="name">Casey</span><span class="app">App</span><span class="time">09:00</span></div>
+              <div class="body">
+                <div class="digest-card">
+                  <div class="ttl">Payments digest — Tue May 21</div>
+
+                  <h5>Moved yesterday</h5>
+                  <ul>
+                    <li><span class="pill done">DONE</span><span class="pill lin">LIN-905</span> Backfill historical disputes — by Alice</li>
+                    <li><span class="pill lin">LIN-892</span> Webhook receiver queue → <strong>In Review</strong> (Bob)</li>
+                    <li><span class="pill gh">#1284</span> Webhook receiver PR → <strong>Mergeable</strong></li>
+                  </ul>
+
+                  <h5>Stale (&gt;3 days no update)</h5>
+                  <ul>
+                    <li><span class="pill stale">STALE 5d</span><span class="pill lin">LIN-870</span> Refund batch processing — Carol</li>
+                    <li><span class="pill stale">STALE 4d</span><span class="pill gh">#1247</span> Dispute webhook idempotency — Carol · conflicts with main</li>
+                  </ul>
+
+                  <h5>New since yesterday</h5>
+                  <ul>
+                    <li><span class="pill new">P1</span><span class="pill lin">LIN-912</span> 3DS challenge UI regression — unassigned</li>
+                    <li><span class="pill new">P2</span><span class="pill lin">LIN-913</span> Stripe API deprecation warning in logs</li>
+                  </ul>
+
+                  <h5>One thing I'd flag</h5>
+                  <ul>
+                    <li>LIN-870 and #1247 are both Carol's, both stale. Worth checking in — Carol's PR conflicts with main, may need a rebase before anyone can review.</li>
+                  </ul>
+
+                  <div class="foot">
+                    Sources: Linear (12 issues read) · GitHub (6 PRs read) · Notion (0 reads today) · 1.8s wall clock<br>
+                    Generated by Casey · Configured by @hassan · <a href="#">Edit schedule</a> · <a href="#">Skip tomorrow</a>
+                  </div>
+                </div>
+                <div class="reactions">
+                  <div class="reaction">👍 4</div>
+                  <div class="reaction">🙏 1</div>
+                  <div class="reaction">👀 2</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="daydiv"><div class="line"></div><div class="lbl">Monday, May 20</div><div class="line"></div></div>
+
+          <div class="msg">
+            <div class="av casey">C</div>
+            <div>
+              <div class="head"><span class="name">Casey</span><span class="app">App</span><span class="time">09:00</span></div>
+              <div class="body" style="color:#616061;font-size:13.5px">
+                Payments digest — Mon May 20 · <a href="#" style="color:#1264a3">view full digest →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h3>Schedule config</h3>
+        <div class="field-row"><span class="k">Name</span><span class="v">Payments digest</span></div>
+        <div class="field-row"><span class="k">Cron</span><span class="v"><code>0 9 * * 1-5</code></span></div>
+        <div class="field-row"><span class="k">Timezone</span><span class="v">America/New_York</span></div>
+        <div class="field-row"><span class="k">Channel</span><span class="v">#standup</span></div>
+        <div class="field-row"><span class="k">Role</span><span class="v">casey (system)</span></div>
+        <div class="field-row"><span class="k">On skip</span><span class="v">DM @hassan</span></div>
+        <div class="field-row"><span class="k">Audit tag</span><span class="v"><code>cron:payments-digest</code></span></div>
+
+        <h3>Prompt template</h3>
+        <div class="prompt-card">Summarize yesterday's activity on the payments team across Linear, GitHub, and Notion. Include moved tickets, stale PRs (&gt;3 days), and new tickets. End with one thing worth flagging to the team.</div>
+
+        <h3>Recent runs</h3>
+        <div class="runs">
+          <div class="row"><span class="t">Tue 09:00</span><span class="s ok">✓ 1.8s · 18 tools</span></div>
+          <div class="row"><span class="t">Mon 09:00</span><span class="s ok">✓ 2.1s · 19 tools</span></div>
+          <div class="row"><span class="t">Fri 09:00</span><span class="s ok">✓ 1.4s · 12 tools</span></div>
+          <div class="row"><span class="t">Thu 09:00</span><span class="s ok">✓ 1.6s · 14 tools</span></div>
+          <div class="row"><span class="t">Wed 09:00</span><span class="s warn">⚠ skipped · notion 401</span></div>
+        </div>
+
+        <div class="note">
+          <strong>Why this matters.</strong> Recurring digests look small but they're the thing the team relies on. A schedule that silently fails (notion 401 → empty digest) is worse than no digest. Casey notifies Hassan when a run is skipped, so trust is maintained.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pager">
+    <a href="05-admin-ui.html">← Chapter 5: admin UI</a>
+    <a class="home" href="index.html">Tour home</a>
+    <a href="07-incident.html">Next: incident →</a>
+  </div>
+</main>
+</body>
+</html>

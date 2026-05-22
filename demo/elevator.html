@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>RapidusSquad — 30-second elevator pitch</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #07090f; --bg-2: #0d1320; --panel: #111a2e;
+    --ink: #e7ecf5; --ink-2: #c3cee0; --mute: #7d8ba8;
+    --line: #1c2541; --line-2: #233055;
+    --accent: #79c0ff; --accent-2: #b794ff;
+    --ok: #6ee7a8; --warn: #f5b461; --bad: #f47878;
+    --term-bg: #050810;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--ink); }
+  body {
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:
+      radial-gradient(900px 500px at 80% -10%, rgba(183,148,255,0.07), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, rgba(121,192,255,0.06), transparent 60%),
+      var(--bg);
+    overflow-x: hidden;
+  }
+  .top {
+    max-width: 1500px; margin: 0 auto; padding: 22px 32px 0;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; color: var(--mute);
+  }
+  .top a { color: var(--accent); text-decoration: none; }
+  .top .right { display: flex; align-items: center; gap: 18px; }
+  .top .clock {
+    font-family: ui-monospace, monospace; color: var(--accent);
+    background: rgba(121,192,255,0.06); border: 1px solid rgba(121,192,255,0.25);
+    padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  }
+  .top button.replay {
+    background: linear-gradient(180deg, var(--accent-2), #8a5fd8);
+    color: white; border: none; padding: 7px 14px; border-radius: 7px;
+    font-weight: 700; cursor: pointer; font-size: 12.5px;
+  }
+  .top button.replay:hover { filter: brightness(1.08); }
+
+  main { max-width: 1500px; margin: 0 auto; padding: 14px 32px 60px; }
+  .hero { margin-bottom: 18px; }
+  h1 {
+    font-size: 30px; margin: 12px 0 4px; letter-spacing: -0.01em;
+    background: linear-gradient(180deg, #ffffff 0%, #b9c7e6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .lede { color: var(--ink-2); max-width: 820px; margin: 0; font-size: 15px; }
+
+  .progress {
+    height: 4px; background: var(--bg-2); border-radius: 999px; overflow: hidden;
+    margin-top: 18px; border: 1px solid var(--line);
+  }
+  .progress .bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width 0.2s linear;
+  }
+
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+    gap: 18px;
+    align-items: stretch;
+    margin-top: 22px;
+    min-height: 580px;
+  }
+  @media (max-width: 1100px) { .split { grid-template-columns: 1fr; } }
+
+  .slack {
+    background: #1a1d29; border: 1px solid #2b2a30; border-radius: 12px; overflow: hidden;
+    display: grid; grid-template-columns: 60px 1fr;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.4);
+    min-height: 580px;
+  }
+  .ws-rail { background: #3f0e40; padding: 14px 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .ws-rail .ws {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: linear-gradient(135deg, #4a8fdc, #2b6cba);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: white; font-size: 13px; border: 2px solid white;
+  }
+  .convo { background: white; display: flex; flex-direction: column; min-height: 0; }
+  .convo .header { background: white; border-bottom: 1px solid #e8e8e8; padding: 11px 22px; display: flex; align-items: center; gap: 10px; }
+  .convo .header .av { width: 22px; height: 22px; border-radius: 5px; background: linear-gradient(135deg,#4a8fdc,#2b6cba); display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 11px; }
+  .convo .header .title { font-weight: 800; color: #1d1c1d; font-size: 14px; }
+  .convo .header .app-tag { background: #ddd; color: #444; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 700; letter-spacing: 0.04em; }
+  .convo .header .meta { color: #616061; font-size: 12.5px; }
+  .convo .messages { flex: 1; padding: 18px 22px; overflow-y: auto; }
+  .msg {
+    display: grid; grid-template-columns: 36px 1fr; gap: 12px; padding: 6px 0;
+    animation: fadein 0.25s ease;
+  }
+  @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .msg .av {
+    width: 34px; height: 34px; border-radius: 5px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 13px;
+  }
+  .msg .av.alice { background: #2bb673; }
+  .msg .av.casey { background: linear-gradient(135deg,#4a8fdc,#2b6cba); }
+  .msg .name-row { display: flex; align-items: baseline; gap: 8px; }
+  .msg .name-row .name { font-weight: 800; color: #1d1c1d; font-size: 14.5px; }
+  .msg .name-row .app { background: #ddd; color: #444; font-size: 10px; padding: 1px 4px; border-radius: 2px; text-transform: uppercase; font-weight: 700; }
+  .msg .name-row .time { color: #616061; font-size: 12px; }
+  .msg .body { color: #1d1c1d; font-size: 14px; line-height: 1.55; }
+  .msg .body code { background: #f4ede4; padding: 1px 4px; border-radius: 3px; color: #7c2d12; font-family: ui-monospace, monospace; font-size: 12.5px; }
+
+  .step-line { color: #616061; font-size: 13px; padding: 2px 0; display: flex; gap: 8px; align-items: baseline; animation: fadein 0.2s ease; }
+  .step-line .check { color: #007a5a; font-weight: 700; }
+  .step-line .warn { color: #c97c00; font-weight: 700; }
+  .step-line.cur { color: #1d1c1d; font-weight: 500; }
+  .step-line.cur .pulse-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #1264a3; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .pr-card {
+    margin-top: 10px; border: 1px solid #e6e6e6; border-left: 4px solid #2da44e;
+    border-radius: 6px; background: white; padding: 12px 14px;
+    animation: pop 0.4s ease;
+  }
+  @keyframes pop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+  .pr-card .title-line { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .pr-card .pr-icon { width: 18px; height: 18px; border-radius: 50%; background: #2da44e; display: inline-flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: 700; }
+  .pr-card .repo-pr { font-weight: 700; color: #1d1c1d; font-size: 14px; }
+  .pr-card .branch { color: #6a737d; font-family: ui-monospace, monospace; font-size: 12px; }
+  .pr-card .desc { color: #1d1c1d; font-size: 13.5px; line-height: 1.5; margin: 6px 0; }
+  .pr-card .stats { display: flex; gap: 14px; font-size: 12px; color: #6a737d; }
+  .pr-card .stats .added { color: #2da44e; font-weight: 600; }
+  .pr-card .stats .removed { color: #cf222e; font-weight: 600; }
+
+  .approved-pill {
+    display: inline-block;
+    background: #e6f7ee; color: #007a5a;
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 12.5px; font-weight: 600; border: 1px solid #b6e2cb;
+  }
+
+  .sandbox {
+    background: var(--term-bg); border: 1px solid #0e1830; border-radius: 12px; overflow: hidden;
+    display: grid; grid-template-rows: auto auto 1fr auto;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.5);
+    min-height: 580px;
+  }
+  .sandbox .titlebar {
+    background: linear-gradient(180deg, #0b1226, #0a1020);
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid #1c2541;
+    font-size: 13px;
+  }
+  .sandbox .titlebar .dot-row { display: flex; gap: 6px; margin-right: 6px; }
+  .sandbox .titlebar .dot-row i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .sandbox .titlebar .dot-row .r { background: #f47878; }
+  .sandbox .titlebar .dot-row .y { background: #f5b461; }
+  .sandbox .titlebar .dot-row .g { background: #6ee7a8; }
+  .sandbox .titlebar .icon { width: 20px; height: 20px; border-radius: 4px; background: linear-gradient(135deg, var(--accent-2), #6b3bcf); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: white; }
+  .sandbox .titlebar .name { font-weight: 700; }
+  .sandbox .titlebar .repo { color: var(--mute); font-family: ui-monospace, monospace; font-size: 12.5px; }
+  .sandbox .titlebar .state {
+    margin-left: auto; color: var(--ok); font-size: 12px;
+    display: inline-flex; align-items: center; gap: 6px; font-weight: 600;
+    font-family: ui-monospace, monospace;
+  }
+  .sandbox .titlebar .state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); animation: blink 1.5s infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .resource {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    background: #060c1a; border-bottom: 1px solid #0e1830;
+    font-family: ui-monospace, monospace; font-size: 11px;
+  }
+  .resource .cell { padding: 7px 14px; border-right: 1px solid #0e1830; color: var(--mute); }
+  .resource .cell:last-child { border-right: none; }
+  .resource .cell .val { color: var(--ink); font-size: 12.5px; font-weight: 600; margin-top: 2px; }
+  .resource .cell .val.ok { color: var(--ok); }
+  .resource .cell .meter { height: 3px; background: #0e1830; border-radius: 2px; margin-top: 4px; overflow: hidden; }
+  .resource .cell .meter i { display: block; height: 100%; background: var(--accent); transition: width 0.6s ease; }
+
+  .stage { display: grid; grid-template-columns: 200px 1fr; min-height: 0; }
+  .files {
+    background: #06091a; border-right: 1px solid #0e1830;
+    padding: 12px 0;
+    font-family: ui-monospace, monospace; font-size: 11.5px; line-height: 1.85;
+    overflow-y: auto;
+  }
+  .files .label { padding: 0 14px 6px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; font-weight: 700; }
+  .files .row { padding: 1px 14px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+  .files .row .ic { width: 12px; color: var(--mute); }
+  .files .row.dir { color: var(--mute); }
+  .files .row.indent { padding-left: 24px; }
+  .files .row.indent-2 { padding-left: 38px; }
+  .files .row.modified { color: var(--warn); background: rgba(245,180,97,0.08); transition: background 0.3s ease; }
+  .files .row.modified::after { content: "M"; margin-left: auto; font-size: 10px; color: var(--warn); font-weight: 700; }
+  .files .row.flash { animation: flash 1.5s ease; }
+  @keyframes flash {
+    0% { background: rgba(245,180,97,0.4); }
+    100% { background: rgba(245,180,97,0.08); }
+  }
+
+  .term {
+    background: var(--term-bg); overflow-y: auto;
+    padding: 14px 18px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px; color: #cfd8ee; line-height: 1.7;
+    white-space: pre-wrap;
+  }
+  .term .head-line {
+    display: block; padding: 8px 0 4px;
+    color: var(--accent); font-size: 10.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; font-weight: 700;
+    border-top: 1px dashed #1c2541; margin-top: 8px;
+  }
+  .term .head-line.first { border-top: none; margin-top: 0; padding-top: 0; }
+  .term .prompt { color: var(--accent-2); }
+  .term .cmd { color: var(--ink); font-weight: 600; }
+  .term .ok { color: var(--ok); }
+  .term .bad { color: var(--bad); }
+  .term .warn { color: var(--warn); }
+  .term .mute { color: var(--mute); }
+
+  .footbar {
+    background: #060c1a; border-top: 1px solid #0e1830; padding: 7px 14px;
+    display: flex; justify-content: space-between; font-family: ui-monospace, monospace;
+    font-size: 11.5px; color: var(--mute);
+  }
+  .footbar .badges { display: flex; gap: 6px; }
+  .footbar .badge {
+    padding: 2px 7px; border: 1px solid var(--line-2); background: #0a1226; border-radius: 4px;
+  }
+  .footbar .badge.ok { color: var(--ok); border-color: rgba(110,231,168,0.3); }
+
+  .done-overlay {
+    position: absolute; inset: 0;
+    background: rgba(7, 9, 15, 0.85);
+    display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    z-index: 10;
+  }
+  .done-overlay.show { display: flex; animation: fadein 0.4s ease; }
+  .done-card {
+    background: linear-gradient(180deg, var(--panel), #0c1325);
+    border: 1px solid var(--line-2); border-radius: 14px;
+    padding: 28px 34px; max-width: 520px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .done-card .check-mark {
+    width: 46px; height: 46px; border-radius: 50%;
+    background: rgba(110,231,168,0.15); border: 1px solid rgba(110,231,168,0.4);
+    color: var(--ok); display: inline-flex; align-items: center; justify-content: center;
+    font-size: 22px; margin-bottom: 14px;
+  }
+  .done-card h3 { margin: 0 0 6px; font-size: 22px; }
+  .done-card p { margin: 0 0 18px; color: var(--ink-2); font-size: 14px; }
+  .done-card .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 22px; }
+  .done-card .stats-grid .stat .v { font-size: 19px; font-weight: 700; color: var(--ink); }
+  .done-card .stats-grid .stat .v.ok { color: var(--ok); }
+  .done-card .stats-grid .stat .l { color: var(--mute); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+  .done-card .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .done-card .btn {
+    padding: 10px 18px; border-radius: 8px; font-weight: 700; cursor: pointer;
+    border: none; font-size: 13.5px; text-decoration: none;
+  }
+  .done-card .btn.primary { background: linear-gradient(180deg, var(--accent-2), #8a5fd8); color: white; }
+  .done-card .btn.ghost { background: transparent; border: 1px solid var(--line-2); color: var(--ink-2); }
+
+  .split-wrap { position: relative; }
+</style>
+</head>
+<body>
+<div class="top">
+  <a href="index.html">← Tour home</a>
+  <div class="right">
+    <span class="clock" id="clock">0.0s · 30s</span>
+    <button class="replay" id="replay">↻ Replay</button>
+  </div>
+</div>
+<main>
+  <div class="hero">
+    <h1>30 seconds of Casey doing real work</h1>
+    <p class="lede">
+      Alice asks Casey to fix a flaky test. Watch the sandbox stream output as
+      Claude reads the code, runs pytest, sees the flake, edits, re-runs 50
+      times, and opens a PR. This is mocked — no real Anthropic calls — but
+      every line below corresponds to a real step in the actual product.
+    </p>
+    <div class="progress"><div class="bar" id="progressbar"></div></div>
+  </div>
+
+  <div class="split-wrap">
+    <div class="split">
+      <div class="slack">
+        <div class="ws-rail"><div class="ws">A</div></div>
+        <div class="convo">
+          <div class="header">
+            <span class="av">C</span>
+            <span class="title">Casey</span>
+            <span class="app-tag">APP</span>
+            <span class="meta">· DM with alice</span>
+          </div>
+          <div class="messages" id="messages"></div>
+        </div>
+      </div>
+
+      <div class="sandbox">
+        <div class="titlebar">
+          <div class="dot-row"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+          <span class="icon">RS</span>
+          <span class="name">casey-sandbox</span>
+          <span class="repo">acme/api · /workdir/acme-api</span>
+          <span class="state" id="sb-state">idle</span>
+        </div>
+
+        <div class="resource">
+          <div class="cell"><div>CPU</div><div class="val" id="cpu-val">0.0 / 4.0</div><div class="meter"><i id="cpu-bar" style="width:0%"></i></div></div>
+          <div class="cell"><div>RAM</div><div class="val" id="ram-val">0.4 / 4.0 GB</div><div class="meter"><i id="ram-bar" style="width:10%"></i></div></div>
+          <div class="cell"><div>Net out</div><div class="val ok">blocked</div></div>
+          <div class="cell"><div>Wallclock</div><div class="val" id="wc-val">0s</div><div class="meter"><i id="wc-bar" style="width:0%;background:#b794ff"></i></div></div>
+          <div class="cell"><div>Bash calls</div><div class="val" id="bash-val">0</div></div>
+        </div>
+
+        <div class="stage">
+          <div class="files">
+            <div class="label">Workdir</div>
+            <div class="row dir"><span class="ic">▾</span> acme-api/</div>
+            <div class="row dir indent"><span class="ic">▾</span> app/</div>
+            <div class="row indent-2"><span class="ic">·</span> main.py</div>
+            <div class="row indent-2" data-file="receiver"><span class="ic">·</span> webhook_receiver.py</div>
+            <div class="row dir indent"><span class="ic">▸</span> models/</div>
+            <div class="row dir indent"><span class="ic">▾</span> tests/</div>
+            <div class="row dir indent-2"><span class="ic">▾</span> integration/</div>
+            <div class="row" style="padding-left:48px" data-file="test"><span class="ic">·</span> test_stripe_webhook.py</div>
+            <div class="row" style="padding-left:48px"><span class="ic">·</span> test_refund_flow.py</div>
+            <div class="row indent"><span class="ic">·</span> pyproject.toml</div>
+            <div class="row indent"><span class="ic">·</span> pytest.ini</div>
+          </div>
+          <div class="term" id="term"></div>
+        </div>
+
+        <div class="footbar">
+          <div class="badges">
+            <span class="badge ok">isolated</span>
+            <span class="badge ok">no credentials</span>
+            <span class="badge ok">egress blocked</span>
+          </div>
+          <div>rapidussquad/sandbox:python-3.12 · sha256:9fa2…7d10</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="done-overlay" id="done">
+      <div class="done-card">
+        <div class="check-mark">✓</div>
+        <h3>Casey fixed it in 30 seconds</h3>
+        <p>One PR, one approval pending, zero human nudging. Branch protection still gates the merge.</p>
+        <div class="stats-grid">
+          <div class="stat"><div class="v ok">14</div><div class="l">bash calls</div></div>
+          <div class="stat"><div class="v ok">0</div><div class="l">net egress</div></div>
+          <div class="stat"><div class="v">+12 / −4</div><div class="l">lines</div></div>
+          <div class="stat"><div class="v ok">50/50</div><div class="l">reruns</div></div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="replay-overlay">↻ Replay</button>
+          <a class="btn ghost" href="04-sandbox-fix.html">See full chapter →</a>
+          <a class="btn ghost" href="index.html">Tour home</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  const term = document.getElementById('term');
+  const messages = document.getElementById('messages');
+  const cpuVal = document.getElementById('cpu-val');
+  const cpuBar = document.getElementById('cpu-bar');
+  const ramVal = document.getElementById('ram-val');
+  const ramBar = document.getElementById('ram-bar');
+  const wcVal = document.getElementById('wc-val');
+  const wcBar = document.getElementById('wc-bar');
+  const bashVal = document.getElementById('bash-val');
+  const sbState = document.getElementById('sb-state');
+  const progressBar = document.getElementById('progressbar');
+  const clockLabel = document.getElementById('clock');
+  const done = document.getElementById('done');
+  const replayBtn = document.getElementById('replay');
+  const replayOverlay = document.getElementById('replay-overlay');
+  const TOTAL_MS = 30000;
+
+  let bashCount = 0;
+  let startTime = 0;
+  let abort = false;
+  let clockRAF = null;
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function tickClock() {
+    const elapsed = Math.min(TOTAL_MS, performance.now() - startTime);
+    clockLabel.textContent = (elapsed / 1000).toFixed(1) + 's · 30s';
+    progressBar.style.width = (elapsed / TOTAL_MS * 100) + '%';
+    if (elapsed < TOTAL_MS && !abort) clockRAF = requestAnimationFrame(tickClock);
+  }
+
+  function el(tag, opts = {}, ...children) {
+    const node = document.createElement(tag);
+    if (opts.cls) node.className = opts.cls;
+    if (opts.text != null) node.textContent = opts.text;
+    if (opts.style) for (const k in opts.style) node.style[k] = opts.style[k];
+    if (opts.attrs) for (const k in opts.attrs) node.setAttribute(k, opts.attrs[k]);
+    for (const c of children) {
+      if (c == null) continue;
+      if (typeof c === 'string') node.appendChild(document.createTextNode(c));
+      else node.appendChild(c);
+    }
+    return node;
+  }
+
+  function span(cls, text) {
+    const s = document.createElement('span');
+    if (cls) s.className = cls;
+    if (text != null) s.textContent = text;
+    return s;
+  }
+
+  function termAppend(node) {
+    term.appendChild(node);
+    term.scrollTop = term.scrollHeight;
+  }
+
+  function termText(text) {
+    term.appendChild(document.createTextNode(text));
+    term.scrollTop = term.scrollHeight;
+  }
+
+  function head(label, first = false) {
+    const h = el('span', { cls: 'head-line' + (first ? ' first' : '') }, '▸ ' + label);
+    termAppend(h);
+    term.appendChild(document.createTextNode('\n'));
+  }
+
+  // Type characters one by one into the terminal as a text node
+  async function typeText(text, speed = 8) {
+    for (let i = 0; i < text.length; i++) {
+      if (abort) return;
+      term.appendChild(document.createTextNode(text[i]));
+      term.scrollTop = term.scrollHeight;
+      if (text[i] === '\n') await sleep(speed * 1.5);
+      else if (Math.random() < 0.05) await sleep(speed + Math.random() * 30);
+      else await sleep(speed);
+    }
+  }
+
+  function setBash(n) {
+    bashCount = n;
+    bashVal.textContent = String(n);
+  }
+
+  function setResources(cpu, ram, wc) {
+    cpuVal.textContent = cpu.toFixed(1) + ' / 4.0';
+    cpuBar.style.width = (cpu / 4 * 100) + '%';
+    ramVal.textContent = ram.toFixed(1) + ' / 4.0 GB';
+    ramBar.style.width = (ram / 4 * 100) + '%';
+    wcVal.textContent = wc + 's / 5m';
+    wcBar.style.width = (wc / 300 * 100) + '%';
+  }
+
+  // Build a Slack message
+  function buildMsg(opts) {
+    const wrap = el('div', { cls: 'msg' });
+    if (opts.id) wrap.id = opts.id;
+    wrap.appendChild(el('div', { cls: 'av ' + opts.avCls, text: opts.avText }));
+    const right = el('div');
+    const nameRow = el('div', { cls: 'name-row' });
+    nameRow.appendChild(el('span', { cls: 'name', text: opts.name }));
+    if (opts.isBot) nameRow.appendChild(el('span', { cls: 'app', text: 'App' }));
+    nameRow.appendChild(el('span', { cls: 'time', text: opts.time }));
+    right.appendChild(nameRow);
+    const body = el('div', { cls: 'body' });
+    if (opts.bodyId) body.id = opts.bodyId;
+    right.appendChild(body);
+    wrap.appendChild(right);
+    messages.appendChild(wrap);
+    messages.scrollTop = messages.scrollHeight;
+    return body;
+  }
+
+  function addText(body, text) {
+    body.appendChild(document.createTextNode(text));
+  }
+
+  function addStep(body, kind, text) {
+    const line = el('div', { cls: 'step-line' });
+    if (kind === 'cur') {
+      line.classList.add('cur');
+      line.appendChild(el('span', { cls: 'pulse-dot' }));
+    } else if (kind === 'check') {
+      line.appendChild(el('span', { cls: 'check', text: '✓' }));
+    } else if (kind === 'warn') {
+      line.appendChild(el('span', { cls: 'warn', text: '!' }));
+    }
+    line.appendChild(document.createTextNode(' ' + text));
+    body.appendChild(line);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function markFile(key) {
+    const row = document.querySelector('.files .row[data-file="' + key + '"]');
+    if (row) row.classList.add('modified', 'flash');
+  }
+
+  function clearAll() {
+    while (messages.firstChild) messages.removeChild(messages.firstChild);
+    while (term.firstChild) term.removeChild(term.firstChild);
+    document.querySelectorAll('.files .row.modified').forEach(r => r.classList.remove('modified', 'flash'));
+  }
+
+  function buildPRCard() {
+    const card = el('div', { cls: 'pr-card' });
+    const titleLine = el('div', { cls: 'title-line' });
+    titleLine.appendChild(el('span', { cls: 'pr-icon', text: 'PR' }));
+    titleLine.appendChild(el('span', { cls: 'repo-pr', text: 'acme/api · #1306' }));
+    card.appendChild(titleLine);
+    card.appendChild(el('div', { cls: 'branch', text: 'casey/lin-870-fix-flaky-webhook-test → main' }));
+    const desc = el('div', { cls: 'desc' });
+    const strong = document.createElement('strong');
+    strong.textContent = 'Fix flaky Stripe webhook test (LIN-870)';
+    desc.appendChild(strong);
+    desc.appendChild(document.createElement('br'));
+    desc.appendChild(document.createTextNode('Replaces a 500ms sleep with event-driven idle wait. Test now passes 50/50 locally. Linked to LIN-870.'));
+    card.appendChild(desc);
+    const stats = el('div', { cls: 'stats' });
+    const statSpan = document.createElement('span');
+    statSpan.appendChild(el('span', { cls: 'added', text: '+12' }));
+    statSpan.appendChild(document.createTextNode(' / '));
+    statSpan.appendChild(el('span', { cls: 'removed', text: '−4' }));
+    stats.appendChild(statSpan);
+    stats.appendChild(el('span', { text: '2 files' }));
+    stats.appendChild(el('span', { text: '1 commit' }));
+    stats.appendChild(el('span', { style: { color: '#2da44e' }, text: '● CI: queued' }));
+    card.appendChild(stats);
+    return card;
+  }
+
+  async function run() {
+    abort = false;
+    bashCount = 0;
+    setBash(0);
+    setResources(0, 0.4, 0);
+    sbState.textContent = 'idle';
+    sbState.style.color = '';
+    clearAll();
+    done.classList.remove('show');
+    startTime = performance.now();
+    if (clockRAF) cancelAnimationFrame(clockRAF);
+    clockRAF = requestAnimationFrame(tickClock);
+
+    // 1) Alice asks
+    const aliceBody = buildMsg({ avCls: 'alice', avText: 'A', name: 'Alice Park', time: '14:18' });
+    addText(aliceBody, "casey — LIN-870 is the flaky stripe webhook test. pretty sure it's a sleep race. can you fix it and open a PR?");
+
+    await sleep(1100);
+
+    // 2) Casey ack
+    const casey1Body = buildMsg({ avCls: 'casey', avText: 'C', name: 'Casey', time: '14:18', isBot: true, bodyId: 'c1' });
+    addText(casey1Body, 'On it. Sandbox is acme/api · trusted-author.');
+
+    sbState.textContent = 'spinning up';
+    await sleep(500);
+    setResources(0.4, 0.6, 1);
+    sbState.textContent = 'running · 1s';
+
+    // 3) Sandbox: clone
+    head('Cloning repo (warm cache hit)', true);
+    termAppend(span('prompt', 'sandbox$ '));
+    await typeText('git clone --depth=1 file:///cache/acme-api .\n', 6);
+    setBash(++bashCount);
+    termAppend(span('mute', "Cloning into '.'... receiving objects: 100% "));
+    termAppend(span('ok', '✓ 0.4s'));
+    termText('\n');
+    addStep(casey1Body, 'check', 'Cloned acme/api · warm cache, 0.4s');
+
+    await sleep(350);
+    setResources(0.8, 0.9, 2);
+
+    head('Reading the failing test');
+    termAppend(span('prompt', 'claude'));
+    termText(' reading ');
+    await typeText('tests/integration/test_stripe_webhook.py\n', 10);
+    termAppend(span('prompt', 'claude'));
+    termText(' reading ');
+    await typeText('app/webhook_receiver.py\n', 10);
+    addStep(casey1Body, 'check', 'Read the failing test and the receiver');
+
+    sbState.textContent = 'running · 4s';
+    setResources(1.4, 1.1, 4);
+
+    // 4) First reproduction
+    head('First reproduction (10×)');
+    termAppend(span('prompt', 'sandbox$ '));
+    await typeText('pytest tests/integration/test_stripe_webhook.py::test_disputes -q --count=10\n', 5);
+    setBash(++bashCount);
+    await sleep(180);
+    const dots1 = ['.', '.', 'F', '.', '.', '.', '.', '.', 'F', '.'];
+    for (const d of dots1) {
+      if (abort) return;
+      if (d === 'F') termAppend(span('bad', 'F'));
+      else termText('.');
+      await sleep(160);
+    }
+    termAppend(span('mute', '   [PASS 8, FAIL 2]'));
+    termText('\n');
+    termAppend(span('bad', 'FAILED test_disputes'));
+    termText(' — expected 3 webhooks received, got 2\n');
+    termAppend(span('warn', '→ confirmed flaky, race on sleep(0.5) in setup()'));
+    termText('\n');
+    addStep(casey1Body, 'warn', 'Confirmed flake — 8/10 pass, race on a 500ms sleep');
+
+    await sleep(450);
+    setResources(1.6, 1.3, 7);
+    sbState.textContent = 'running · 7s';
+
+    // 5) Casey explains the fix
+    const casey2Body = buildMsg({ avCls: 'casey', avText: 'C', name: 'Casey', time: '14:18', isBot: true, bodyId: 'c2' });
+    addText(casey2Body, "Root cause: the test sleeps 500ms hoping the receiver has drained. On a busy CI runner it's a race. Replacing the sleep with an event-driven wait on the receiver's idle() signal.");
+
+    // 6) Edits
+    head('Edit attempt');
+    termAppend(span('prompt', 'claude'));
+    termText(' edit ');
+    termAppend(span('cmd', 'app/webhook_receiver.py'));
+    termText(': ');
+    await typeText('+5 / −0\n', 8);
+    termText('  + self._idle = asyncio.Event()\n');
+    termText('  + async def idle(self): await self._idle.wait()\n');
+    markFile('receiver');
+
+    await sleep(180);
+    termAppend(span('prompt', 'claude'));
+    termText(' edit ');
+    termAppend(span('cmd', 'tests/integration/test_stripe_webhook.py'));
+    termText(': ');
+    await typeText('+7 / −4\n', 8);
+    termText('  ');
+    termAppend(span('bad', '- await asyncio.sleep(0.5)'));
+    termText('\n  ');
+    termAppend(span('ok', '+ await receiver.idle()'));
+    termText('\n');
+    markFile('test');
+    addStep(casey2Body, 'check', 'Drafted change · +12 / −4 across 2 files');
+
+    await sleep(350);
+    setResources(1.4, 1.4, 11);
+    sbState.textContent = 'running · 11s';
+
+    // 7) Lint + typecheck
+    head('Lint + typecheck');
+    termAppend(span('prompt', 'sandbox$ '));
+    await typeText('ruff check app/ tests/\n', 5);
+    setBash(++bashCount);
+    await sleep(160);
+    termAppend(span('ok', 'All checks passed.'));
+    termText('\n');
+    termAppend(span('prompt', 'sandbox$ '));
+    await typeText('mypy app/\n', 5);
+    setBash(++bashCount);
+    await sleep(200);
+    termAppend(span('ok', 'Success: no issues found in 14 source files'));
+    termText('\n');
+    addStep(casey2Body, 'check', 'Lint + typecheck green');
+
+    await sleep(250);
+    setResources(1.8, 1.5, 14);
+    sbState.textContent = 'running · 14s';
+
+    // 8) Verification 50x
+    head('Verification (50 repeats)');
+    termAppend(span('prompt', 'sandbox$ '));
+    await typeText('pytest tests/integration/test_stripe_webhook.py::test_disputes -q --count=50\n', 5);
+    setBash(++bashCount);
+    const pulses = [12, 14, 12, 12];
+    for (const p of pulses) {
+      for (let i = 0; i < p; i++) {
+        if (abort) return;
+        termText('.');
+        await sleep(42);
+      }
+      await sleep(70);
+    }
+    termAppend(span('mute', '   [PASS 50, FAIL 0]'));
+    termText('\n');
+    termAppend(span('ok', '50 passed in 12.4s'));
+    termText('\n');
+    addStep(casey2Body, 'check', 'Re-ran 50× — passed 50/50');
+
+    await sleep(300);
+    setResources(1.2, 1.4, 22);
+    sbState.textContent = 'running · 22s';
+
+    // 9) Wider sweep
+    head('Wider test pass (changed surface)');
+    termAppend(span('prompt', 'sandbox$ '));
+    await typeText('pytest tests/integration/test_stripe_webhook.py -q\n', 5);
+    setBash(++bashCount);
+    await sleep(250);
+    termAppend(span('ok', '14 passed in 4.1s'));
+    termText('\n');
+
+    await sleep(200);
+    setResources(0.9, 1.3, 25);
+    sbState.textContent = 'running · 25s';
+
+    // 10) Commit + handoff
+    head('Commit & handoff (push happens from casey-app, not the sandbox)');
+    termAppend(span('prompt', 'sandbox$ '));
+    await typeText('git checkout -b casey/lin-870-fix-flaky-webhook-test\n', 5);
+    setBash(++bashCount);
+    termAppend(span('prompt', 'sandbox$ '));
+    await typeText('git commit -m "Fix flaky Stripe webhook test (LIN-870)"\n', 5);
+    setBash(++bashCount);
+    termAppend(span('mute', '[casey/lin-870-fix-... e8a2f31] Fix flaky Stripe webhook test'));
+    termText('\n');
+    termAppend(span('mute', ' 2 files changed, 12 insertions(+), 4 deletions(-)'));
+    termText('\n');
+
+    await sleep(180);
+    termAppend(span('prompt', 'sandbox→app '));
+    await typeText('handoff_patch(branch=casey/lin-870-..., base=main)\n', 5);
+    termAppend(span('ok', '✓ patch handed off, sandbox idle'));
+    termText('\n');
+
+    addStep(casey2Body, 'cur', 'Opening PR on acme/api…');
+    setResources(0.4, 0.6, 28);
+    sbState.textContent = 'idle';
+    sbState.style.color = 'var(--mute)';
+
+    await sleep(650);
+
+    // 11) PR card lands
+    const casey3Body = buildMsg({ avCls: 'casey', avText: 'C', name: 'Casey', time: '14:19', isBot: true });
+    casey3Body.appendChild(el('span', { cls: 'approved-pill', text: 'PR opened' }));
+    casey3Body.appendChild(buildPRCard());
+    const note = el('div', { style: { marginTop: '6px', color: '#616061', fontSize: '12px' } });
+    note.textContent = "Branch protection requires 1 human review + CI green. Casey won't merge.";
+    casey3Body.appendChild(note);
+
+    await sleep(1000);
+    setResources(0.2, 0.5, 30);
+    done.classList.add('show');
+  }
+
+  replayBtn.addEventListener('click', async () => {
+    abort = true;
+    await sleep(100);
+    run();
+  });
+  replayOverlay.addEventListener('click', async () => {
+    abort = true;
+    await sleep(100);
+    run();
+  });
+
+  run();
+})();
+</script>
+</body>
+</html>

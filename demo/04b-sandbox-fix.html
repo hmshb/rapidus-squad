@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter 4 (canonical) — Sandbox fix · the showcase</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #fbfbfd;
+    --ink: #0e1116; --ink-2: #1d242f; --mute: #6e7787;
+    --line: #ecedf0; --line-2: #dde0e5;
+    --accent: #4f46e5; --accent-2: #8b5cf6; --accent-soft: #eef2ff;
+    --ok: #059669; --warn: #d97706; --bad: #dc2626;
+    --slack-ink: #1d1c1d; --slack-mute: #616061; --slack-blue: #1264a3;
+    --slack-line: #e3e3e5; --checklist-bg: #f8f8f8;
+    --slack-green: #2eb67d;
+    --term-bg: #0b0d14; --term-ink: #d4dae7; --term-mute: #6a7595;
+    --term-accent: #a78bfa; --term-ok: #34d399; --term-warn: #fbbf24; --term-bad: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+    background: radial-gradient(1100px 600px at 85% -10%, rgba(139,92,246,0.10), transparent 60%), var(--bg);
+    min-height: 100vh;
+  }
+  .topbar { max-width: 1400px; margin: 0 auto; padding: 22px 32px 0; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--mute); }
+  .topbar a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .topbar .nav a { margin-left: 14px; }
+  main { max-width: 1400px; margin: 0 auto; padding: 30px 32px 96px; }
+  h1 { font-size: 36px; margin: 12px 0 8px; letter-spacing: -0.02em; font-weight: 700; }
+  .lede { color: var(--ink-2); max-width: 880px; margin: 0 0 8px; font-size: 16px; line-height: 1.6; }
+  .who { color: var(--mute); font-size: 13.5px; margin-bottom: 26px; display: flex; gap: 18px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line); }
+  .who b { color: var(--ink-2); font-weight: 600; }
+
+  .split { display: grid; grid-template-columns: 1fr 1.2fr; gap: 22px; align-items: stretch; min-height: 720px; }
+  @media (max-width: 1100px) { .split { grid-template-columns: 1fr; } }
+
+  /* SLACK side */
+  .slack {
+    background: white; border: 1px solid var(--slack-line); border-radius: 14px;
+    overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 18px 48px -12px rgba(15,23,42,0.12);
+    min-height: 720px;
+  }
+  .slack-head {
+    padding: 14px 20px; border-bottom: 1px solid var(--slack-line);
+    display: flex; align-items: center; gap: 10px; background: white;
+  }
+  .slack-head .av { width: 22px; height: 22px; border-radius: 5px; background: linear-gradient(135deg,#4a8fdc,#2b6cba); color: white; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+  .slack-head .name { font-weight: 800; color: var(--slack-ink); font-size: 15px; }
+  .slack-head .app-tag { background: #ddd; color: #555; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+  .slack-head .meta { color: var(--slack-mute); font-size: 12.5px; }
+  .thread { flex: 1; padding: 18px 22px; overflow-y: auto; background: white; }
+
+  .msg { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 8px 0; }
+  .avatar { width: 36px; height: 36px; border-radius: 6px; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+  .avatar.alice { background: linear-gradient(135deg, #2eb67d, #1a8c5e); }
+  .avatar.bot { background: linear-gradient(135deg, #4a8fdc, #2b6cba); }
+  .body { min-width: 0; }
+  .meta-row { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; }
+  .meta-row .uname { font-weight: 800; color: var(--slack-ink); font-size: 15px; }
+  .meta-row .app { background: #ddd; color: #555; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 700; }
+  .meta-row .time { color: var(--slack-mute); font-size: 12px; }
+  .text { color: var(--slack-ink); font-size: 14.5px; line-height: 1.55; margin-top: 2px; }
+  .text code { background: #f4ede4; padding: 1px 5px; border-radius: 3px; color: #7c2d12; font-family: ui-monospace, monospace; font-size: 12.5px; }
+
+  /* Canonical status block (working state shown) */
+  .status-block {
+    margin-top: 8px; background: var(--checklist-bg);
+    border: 1px solid var(--slack-line); border-radius: 10px; overflow: hidden;
+  }
+  .status-header {
+    padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+    background: var(--checklist-bg); border-bottom: 1px solid var(--slack-line);
+  }
+  .status-icon { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: white; font-size: 11px; font-weight: 700; position: relative; }
+  .status-icon.working { background: var(--slack-blue); }
+  .status-icon.working::before {
+    content: ""; position: absolute; inset: -3px;
+    border: 2px solid var(--slack-blue); border-radius: 50%; opacity: 0.3;
+    animation: ping 1.4s infinite;
+  }
+  @keyframes ping { 0% { transform: scale(0.8); opacity: 0.6; } 100% { transform: scale(1.6); opacity: 0; } }
+  .status-icon.working::after {
+    content: ""; width: 9px; height: 9px; border-radius: 50%;
+    border: 2px solid white; border-top-color: transparent;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+  .status-icon.complete { background: var(--slack-green); }
+  .status-icon.complete::after { content: "✓"; }
+  .status-label { font-weight: 700; font-size: 14px; color: var(--slack-ink); }
+  .status-meta { color: var(--slack-mute); font-size: 12.5px; }
+  .status-meta .branch { font-family: ui-monospace, monospace; color: var(--slack-blue); background: #eaf3fa; padding: 1px 7px; border-radius: 4px; font-size: 11.5px; }
+  .status-chevron { margin-left: auto; color: var(--slack-mute); font-size: 11px; }
+  .status-body { padding: 12px 14px; background: white; }
+
+  .todo-list { list-style: none; padding: 0; margin: 0; }
+  .todo-item { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; font-size: 13.5px; }
+  .todo-mark { width: 17px; height: 17px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; font-size: 10px; font-weight: 700; }
+  .todo-mark.pending { border: 1.5px solid #c1c1c1; color: white; background: transparent; }
+  .todo-mark.in_progress { background: var(--slack-blue); color: white; animation: pulse 1.4s infinite; }
+  .todo-mark.in_progress::after { content: "◐"; }
+  .todo-mark.completed { background: var(--slack-green); color: white; }
+  .todo-mark.completed::after { content: "✓"; }
+  .todo-text { color: var(--slack-ink); line-height: 1.5; }
+  .todo-item.completed .todo-text { color: var(--slack-mute); }
+  .todo-item.pending .todo-text { color: var(--slack-mute); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+  /* PR card / summary */
+  .summary-card {
+    margin-top: 10px; border: 1px solid var(--slack-line); border-left: 4px solid var(--slack-green);
+    background: white; border-radius: 8px; padding: 14px 16px;
+  }
+  .summary-card .label { font-size: 11px; color: var(--slack-mute); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .summary-card .pr-title { font-weight: 800; font-size: 15px; color: var(--slack-ink); margin-bottom: 4px; }
+  .summary-card .branch-line { font-family: ui-monospace, monospace; font-size: 12px; color: var(--slack-mute); margin-bottom: 8px; }
+  .summary-card .desc { color: var(--slack-ink); font-size: 14px; line-height: 1.6; }
+  .summary-card .stats-row { display: flex; gap: 14px; font-size: 12px; color: var(--slack-mute); margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
+  .summary-card .added { color: var(--ok); font-weight: 700; font-family: ui-monospace, monospace; }
+  .summary-card .removed { color: var(--bad); font-weight: 700; font-family: ui-monospace, monospace; }
+
+  .action-bar { margin-top: 10px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .action-btn { background: white; border: 1px solid #c1c1c1; padding: 6px 14px; border-radius: 5px; font-size: 12.5px; font-weight: 600; cursor: pointer; color: var(--slack-ink); display: inline-flex; align-items: center; gap: 5px; }
+  .action-btn:hover { background: #f0f0f0; }
+  .action-btn.primary { background: var(--slack-blue); color: white; border-color: var(--slack-blue); }
+  .action-btn.icon { padding: 6px 9px; }
+
+  .branch-note { margin-top: 8px; font-size: 12px; color: var(--slack-mute); line-height: 1.5; }
+
+  /* SANDBOX side */
+  .sandbox {
+    background: var(--term-bg); border: 1px solid #1a1f2e; border-radius: 14px;
+    overflow: hidden; display: grid; grid-template-rows: auto auto 1fr auto;
+    box-shadow: 0 18px 48px -12px rgba(15,23,42,0.4);
+    min-height: 720px;
+  }
+  .sandbox .titlebar {
+    background: linear-gradient(180deg, #11141f 0%, #0b0d14 100%);
+    padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid #1a1f2e; color: var(--term-ink); font-size: 13px;
+  }
+  .sandbox .dot-row { display: flex; gap: 6px; margin-right: 6px; }
+  .sandbox .dot-row i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .sandbox .dot-row .r { background: #f87171; }
+  .sandbox .dot-row .y { background: #fbbf24; }
+  .sandbox .dot-row .g { background: #34d399; }
+  .sandbox .icon { width: 22px; height: 22px; border-radius: 5px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: white; }
+  .sandbox .name { font-weight: 700; }
+  .sandbox .repo { color: var(--term-mute); font-family: ui-monospace, monospace; font-size: 12px; }
+  .sandbox .state { margin-left: auto; color: var(--term-ok); font-size: 12px; display: inline-flex; align-items: center; gap: 7px; font-weight: 700; font-family: ui-monospace, monospace; }
+  .sandbox .state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--term-ok); animation: blink 1.4s infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .resource { display: grid; grid-template-columns: repeat(5, 1fr); background: #060810; border-bottom: 1px solid #1a1f2e; font-family: ui-monospace, monospace; font-size: 10.5px; }
+  .resource .cell { padding: 8px 14px; border-right: 1px solid #1a1f2e; color: var(--term-mute); }
+  .resource .cell:last-child { border-right: none; }
+  .resource .cell .val { color: var(--term-ink); font-size: 12.5px; font-weight: 600; margin-top: 3px; }
+  .resource .cell .val.ok { color: var(--term-ok); }
+  .resource .cell .meter { height: 3px; background: #1a1f2e; border-radius: 2px; margin-top: 5px; overflow: hidden; }
+  .resource .cell .meter i { display: block; height: 100%; background: var(--accent); }
+
+  .stage { display: grid; grid-template-columns: 200px 1fr; min-height: 0; }
+  .files { background: #060810; border-right: 1px solid #1a1f2e; padding: 12px 0; font-family: ui-monospace, monospace; font-size: 11.5px; line-height: 1.85; overflow-y: auto; }
+  .files .label { padding: 0 14px 8px; color: var(--term-mute); text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; font-weight: 700; }
+  .files .row { padding: 1px 14px; color: var(--term-ink); display: flex; align-items: center; gap: 6px; }
+  .files .row .ic { width: 12px; color: var(--term-mute); }
+  .files .row.dir { color: var(--term-mute); }
+  .files .row.indent { padding-left: 24px; }
+  .files .row.indent-2 { padding-left: 38px; }
+  .files .row.modified { color: var(--term-warn); background: rgba(251,191,36,0.08); }
+  .files .row.modified::after { content: "M"; margin-left: auto; font-size: 10px; color: var(--term-warn); font-weight: 700; }
+
+  .term {
+    background: var(--term-bg); overflow-y: auto; padding: 16px 22px;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px; color: var(--term-ink); line-height: 1.75;
+    white-space: pre-wrap;
+  }
+  .term .head-line {
+    display: block; padding: 10px 0 4px;
+    color: var(--term-accent); font-size: 10.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; font-weight: 700;
+    border-top: 1px dashed #1a1f2e; margin-top: 10px;
+  }
+  .term .head-line.first { border-top: none; margin-top: 0; padding-top: 0; }
+  .term .prompt { color: var(--term-accent); }
+  .term .cmd { color: var(--term-ink); font-weight: 600; }
+  .term .ok { color: var(--term-ok); }
+  .term .bad { color: var(--term-bad); }
+  .term .warn { color: var(--term-warn); }
+  .term .mute { color: var(--term-mute); }
+
+  .footbar { background: #060810; border-top: 1px solid #1a1f2e; padding: 8px 16px; display: flex; justify-content: space-between; font-family: ui-monospace, monospace; font-size: 11px; color: var(--term-mute); }
+  .footbar .badges { display: flex; gap: 6px; }
+  .footbar .badge { padding: 2px 8px; border: 1px solid #1a1f2e; background: #0b0d14; border-radius: 4px; }
+  .footbar .badge.ok { color: var(--term-ok); border-color: rgba(52,211,153,0.3); }
+
+  /* Bottom explainer */
+  .explainer { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 980px) { .explainer { grid-template-columns: 1fr 1fr; } }
+  .explainer .card { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+  .explainer .card h4 { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mute); margin: 0 0 10px; font-weight: 700; }
+  .explainer .card p { margin: 0; color: var(--ink-2); font-size: 13px; line-height: 1.55; }
+  .explainer .card .num { font-size: 24px; color: var(--ink); font-weight: 700; margin-bottom: 6px; }
+  .explainer .card .num.ok { color: var(--ok); }
+  .explainer .card .num.warn { color: var(--warn); }
+  .explainer .card .num.accent { color: var(--accent); }
+
+  .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 50px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13px; }
+  .pager a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .pager .home { color: var(--mute); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a href="03b-slack-read.html">← Chapter 3 (canonical)</a>
+  <div class="nav">
+    <span style="color:var(--mute)">Chapter 4 · canonical · showcase</span>
+    <a href="06b-schedule.html">Next: scheduled digest →</a>
+  </div>
+</div>
+<main>
+  <h1>Alice asks Casey to fix a flaky test</h1>
+  <p class="lede">
+    The showcase, in the canonical UX. <strong>Left:</strong> what Alice sees
+    in Slack — one collapsing Casey message with a TodoWrite checklist that
+    updates as work progresses, ending in a PR card with action buttons.
+    <strong>Right:</strong> the live sandbox terminal showing what's actually
+    happening inside the per-repo container. The Slack pane is the production
+    UX; the sandbox pane is what an on-call admin would optionally see in a
+    "sandbox-visible" power mode.
+  </p>
+  <p class="who">
+    <span><b>Repo:</b> acme/api · <code style="background:var(--accent-soft);padding:1px 6px;border-radius:4px;color:var(--accent);font-weight:600">trusted-author</code></span>
+    <span><b>Sandbox image:</b> rapidussquad/sandbox:python-3.12</span>
+    <span><b>Wall clock:</b> 38s</span>
+  </p>
+
+  <div class="split">
+    <!-- SLACK · canonical UX -->
+    <div class="slack">
+      <div class="slack-head">
+        <div class="av">C</div>
+        <div class="name">Casey</div>
+        <div class="app-tag">APP</div>
+        <div class="meta">· DM with alice</div>
+      </div>
+      <div class="thread">
+        <div class="msg">
+          <div class="avatar alice">A</div>
+          <div class="body">
+            <div class="meta-row"><span class="uname">Alice Park</span><span class="time">14:18</span></div>
+            <div class="text">casey — LIN-870 is the flaky stripe webhook test. pretty sure it's a sleep race. can you fix it and open a PR?</div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="avatar bot">C</div>
+          <div class="body">
+            <div class="meta-row"><span class="uname">Casey</span><span class="app">APP</span><span class="time">14:18</span></div>
+
+            <!-- Status block — captured at the moment between "verify" and "open PR" -->
+            <div class="status-block">
+              <div class="status-header">
+                <div class="status-icon working"></div>
+                <span class="status-label">Working…</span>
+                <span class="status-meta">· <span class="branch">casey/lin-870-fix-flaky-webhook-test</span></span>
+                <span class="status-chevron">▾</span>
+              </div>
+              <div class="status-body">
+                <ul class="todo-list">
+                  <li class="todo-item completed"><div class="todo-mark completed"></div><div class="todo-text">Read LIN-870 and locate the failing test</div></li>
+                  <li class="todo-item completed"><div class="todo-mark completed"></div><div class="todo-text">Reproduce flake locally (8/10 passed — confirmed race on <code>sleep(0.5)</code>)</div></li>
+                  <li class="todo-item completed"><div class="todo-mark completed"></div><div class="todo-text">Patch <code>app/webhook_receiver.py</code> + <code>test_stripe_webhook.py</code> (+12 / −4)</div></li>
+                  <li class="todo-item completed"><div class="todo-mark completed"></div><div class="todo-text">Verify with 50× rerun + ruff + mypy — all green</div></li>
+                  <li class="todo-item in_progress"><div class="todo-mark in_progress"></div><div class="todo-text">Opening PR on casey/lin-870-fix-flaky-webhook-test…</div></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Once the PR is opened, the canonical UX would COLLAPSE the status block and show the summary card. We show the next-state preview below to demonstrate completion. -->
+        <div class="msg" style="margin-top:8px">
+          <div class="avatar bot">C</div>
+          <div class="body">
+            <div class="meta-row"><span class="uname">Casey</span><span class="app">APP</span><span class="time">14:19</span></div>
+
+            <div class="status-block">
+              <div class="status-header">
+                <div class="status-icon complete"></div>
+                <span class="status-label">Completed</span>
+                <span class="status-meta">· 38s · 14 sandbox calls · <span class="branch">casey/lin-870-fix-flaky-webhook-test</span></span>
+                <span class="status-chevron">▾</span>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <div class="label">Summary</div>
+              <div class="pr-title">Fix flaky Stripe webhook test (LIN-870)</div>
+              <div class="branch-line">acme/api · #1306 · casey/lin-870-fix-flaky-webhook-test → main</div>
+              <div class="desc">Root cause was a 500ms sleep in <code>test_disputes()</code> racing with the receiver. Replaced with an event-driven wait on <code>receiver.idle()</code>. Re-ran 50× — passed 50/50. Lint + typecheck clean. Linked to LIN-870 in the PR body.</div>
+              <div class="stats-row">
+                <span><span class="added">+12</span> / <span class="removed">−4</span></span>
+                <span>2 files</span>
+                <span>1 commit</span>
+                <span style="color:var(--ok)">● CI: queued</span>
+              </div>
+            </div>
+
+            <div class="action-bar">
+              <button class="action-btn primary">↗ View PR #1306</button>
+              <button class="action-btn">📋 View logs</button>
+              <button class="action-btn">↳ Follow-up</button>
+              <button class="action-btn icon">⋯</button>
+            </div>
+
+            <div class="branch-note">Branch protection on <code>main</code> requires 1 human review + CI green. Casey won't merge.</div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="avatar alice">A</div>
+          <div class="body">
+            <div class="meta-row"><span class="uname">Alice Park</span><span class="time">14:20</span></div>
+            <div class="text">amazing, thanks. I'll review it.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SANDBOX -->
+    <div class="sandbox">
+      <div class="titlebar">
+        <div class="dot-row"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+        <span class="icon">RS</span>
+        <span class="name">casey-sandbox</span>
+        <span class="repo">acme/api · /workdir/acme-api</span>
+        <span class="state">running · 32s</span>
+      </div>
+
+      <div class="resource">
+        <div class="cell"><div>CPU</div><div class="val">1.8 / 4.0</div><div class="meter"><i style="width:45%"></i></div></div>
+        <div class="cell"><div>RAM</div><div class="val">1.4 / 4.0 GB</div><div class="meter"><i style="width:35%"></i></div></div>
+        <div class="cell"><div>Net out</div><div class="val ok">blocked</div></div>
+        <div class="cell"><div>Wallclock</div><div class="val">32s / 5m</div><div class="meter"><i style="width:11%"></i></div></div>
+        <div class="cell"><div>Bash calls</div><div class="val">14 (allowlisted)</div></div>
+      </div>
+
+      <div class="stage">
+        <div class="files">
+          <div class="label">Workdir</div>
+          <div class="row dir"><span class="ic">▾</span> acme-api/</div>
+          <div class="row dir indent"><span class="ic">▾</span> app/</div>
+          <div class="row indent-2"><span class="ic">·</span> main.py</div>
+          <div class="row modified indent-2"><span class="ic">·</span> webhook_receiver.py</div>
+          <div class="row dir indent"><span class="ic">▾</span> tests/</div>
+          <div class="row dir indent-2"><span class="ic">▾</span> integration/</div>
+          <div class="row modified" style="padding-left:48px"><span class="ic">·</span> test_stripe_webhook.py</div>
+          <div class="row" style="padding-left:48px"><span class="ic">·</span> test_refund_flow.py</div>
+          <div class="row indent"><span class="ic">·</span> pyproject.toml</div>
+          <div class="row indent"><span class="ic">·</span> pytest.ini</div>
+          <div class="label" style="margin-top:14px">Diff</div>
+          <div style="padding:0 14px;color:var(--term-ink);font-size:11.5px;line-height:1.8">
+            <span style="color:var(--term-ok)">+12</span> / <span style="color:var(--term-bad)">−4</span> · 2 files<br>
+            <span style="color:var(--term-mute)">staged:</span> ✓
+          </div>
+        </div>
+
+        <div class="term">
+<pre><span class="head-line first">▸ Cloning repo (warm cache hit)</span>
+<span class="prompt">sandbox$</span> <span class="cmd">git clone --depth=1 file:///cache/acme-api .</span>
+<span class="mute">Cloning into '.'... 100%</span> <span class="ok">✓ 0.4s</span>
+
+<span class="head-line">▸ Reading the failing test</span>
+<span class="prompt">claude</span> reading <span class="cmd">tests/integration/test_stripe_webhook.py</span>
+<span class="prompt">claude</span> reading <span class="cmd">app/webhook_receiver.py</span>
+
+<span class="head-line">▸ First reproduction (10×)</span>
+<span class="prompt">sandbox$</span> <span class="cmd">pytest ...::test_disputes -q --count=10</span>
+<span class="mute">..F.....F.   [PASS 8, FAIL 2]</span>
+<span class="bad">FAILED</span> — expected 3 webhooks, got 2
+<span class="warn">→ confirmed flake, race on sleep(0.5)</span>
+
+<span class="head-line">▸ Edits</span>
+<span class="prompt">claude</span> edit <span class="cmd">app/webhook_receiver.py</span> <span class="ok">+5 −0</span>
+  + self._idle = asyncio.Event()
+  + async def idle(self): await self._idle.wait()
+<span class="prompt">claude</span> edit <span class="cmd">tests/integration/test_stripe_webhook.py</span> <span class="ok">+7 −4</span>
+  <span class="bad">- await asyncio.sleep(0.5)</span>
+  <span class="ok">+ await receiver.idle()</span>
+
+<span class="head-line">▸ Lint + typecheck</span>
+<span class="prompt">sandbox$</span> <span class="cmd">ruff check app/ tests/</span>
+<span class="ok">All checks passed.</span>
+<span class="prompt">sandbox$</span> <span class="cmd">mypy app/</span>
+<span class="ok">Success: no issues found in 14 source files</span>
+
+<span class="head-line">▸ Verification (50 repeats)</span>
+<span class="prompt">sandbox$</span> <span class="cmd">pytest ...::test_disputes -q --count=50</span>
+<span class="mute">..................................................   [PASS 50, FAIL 0]</span>
+<span class="ok">50 passed in 12.4s</span>
+
+<span class="head-line">▸ Commit &amp; handoff</span>
+<span class="prompt">sandbox$</span> <span class="cmd">git checkout -b casey/lin-870-fix-flaky-webhook-test</span>
+<span class="prompt">sandbox$</span> <span class="cmd">git commit -m "Fix flaky Stripe webhook test (LIN-870)"</span>
+<span class="mute">[casey/lin-870-... e8a2f31] 2 files changed, 12 insertions(+), 4 deletions(-)</span>
+
+<span class="prompt">sandbox→app</span> <span class="cmd">handoff_patch(branch=casey/lin-870-..., base=main)</span>
+<span class="ok">✓ patch handed off — sandbox does not push</span>
+</pre>
+        </div>
+      </div>
+
+      <div class="footbar">
+        <div class="badges">
+          <span class="badge ok">isolated</span>
+          <span class="badge ok">no credentials</span>
+          <span class="badge ok">egress blocked</span>
+        </div>
+        <div>image: rapidussquad/sandbox:python-3.12 · sha256:9fa2…7d10</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="explainer">
+    <div class="card">
+      <h4>Slack-side render</h4>
+      <div class="num accent">1 msg</div>
+      <p>One mutating Casey message — not five. Status block holds the working state, collapses, becomes a summary card with action buttons. Production UX.</p>
+    </div>
+    <div class="card">
+      <h4>Sandbox calls</h4>
+      <div class="num accent">14</div>
+      <p>All allowlisted. The Slack pane shows just <em>"14 sandbox calls"</em>. Power users open <em>View logs</em> for the full trace; the sandbox terminal on the right is the same data.</p>
+    </div>
+    <div class="card">
+      <h4>External calls from sandbox</h4>
+      <div class="num ok">0</div>
+      <p>Repo clone came from local cache. The push happens from casey-app, not the sandbox — sandbox has no GitHub credentials.</p>
+    </div>
+    <div class="card">
+      <h4>Approvals</h4>
+      <div class="num warn">0</div>
+      <p>Trusted-author mode. Casey opens the PR directly; branch protection on <code>main</code> + the human review on the PR are the gate.</p>
+    </div>
+  </div>
+
+  <div class="pager">
+    <a href="03b-slack-read.html">← Chapter 3 (canonical)</a>
+    <a class="home" href="04-sandbox-fix.html">View the streaming-pattern version →</a>
+    <a href="06b-schedule.html">Next: scheduled digest →</a>
+  </div>
+</main>
+</body>
+</html>

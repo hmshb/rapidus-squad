@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chapter 2 — Alice gets approved</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #07090f; --bg-2: #0d1320; --panel: #111a2e;
+    --ink: #e7ecf5; --ink-2: #c3cee0; --mute: #7d8ba8;
+    --line: #1c2541; --line-2: #233055;
+    --accent: #79c0ff; --ok: #6ee7a8; --warn: #f5b461; --bad: #f47878;
+    --slack-bg: #1a1d29;
+    --slack-side: #19171d;
+    --slack-side-active: #1164a3;
+    --slack-hover: #27242c;
+    --slack-text: #d1d2d3;
+    --slack-muted: #ababad;
+    --slack-divider: #35373c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); min-height: 100vh;
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .top {
+    max-width: 1200px; margin: 0 auto; padding: 28px 32px 0;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; color: var(--mute);
+  }
+  .top a { color: var(--accent); text-decoration: none; }
+  .top .nav a { margin-left: 14px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 32px 96px; }
+  h1 { font-size: 32px; margin: 18px 0 6px; letter-spacing: -0.01em; }
+  .lede { color: var(--ink-2); max-width: 760px; margin: 0 0 8px; }
+  .who { color: var(--mute); font-size: 13px; margin-bottom: 30px; }
+  .who strong { color: var(--ink-2); }
+
+  .scene-label {
+    display: flex; align-items: center; gap: 14px;
+    margin: 36px 0 14px; font-size: 13px; color: var(--mute); letter-spacing: 0.06em;
+  }
+  .scene-label .pill {
+    background: var(--panel); border: 1px solid var(--line-2);
+    padding: 4px 10px; border-radius: 999px;
+    color: var(--ink); font-weight: 600; font-size: 12px;
+  }
+  .scene-label .who-tag {
+    color: var(--accent); font-weight: 600;
+  }
+  .scene-label .arrow { color: var(--mute); }
+  .scene-label .time { margin-left: auto; color: var(--mute); font-size: 12.5px; }
+
+  /* Slack mock */
+  .slack {
+    background: var(--slack-bg);
+    border: 1px solid #2b2a30;
+    border-radius: 12px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 70px 260px 1fr;
+    min-height: 420px;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.4);
+  }
+  /* Workspace rail */
+  .ws-rail {
+    background: #3f0e40;
+    display: flex; flex-direction: column; align-items: center; padding: 16px 0; gap: 10px;
+  }
+  .ws-rail .ws {
+    width: 38px; height: 38px; border-radius: 8px;
+    background: linear-gradient(135deg, #4a8fdc, #2b6cba);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: white; font-size: 14px;
+    border: 2px solid white;
+  }
+  .ws-rail .add {
+    width: 38px; height: 38px; border-radius: 8px;
+    background: rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.7); font-size: 22px;
+    margin-top: 4px;
+  }
+  /* Channel list */
+  .channels {
+    background: var(--slack-side);
+    color: var(--slack-text);
+    padding: 14px 0;
+    border-right: 1px solid #232228;
+  }
+  .channels .workspace {
+    padding: 0 18px 12px; border-bottom: 1px solid #232228;
+    font-weight: 700; color: white; font-size: 15px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .channels .workspace .me { color: var(--slack-muted); font-size: 12px; font-weight: 400; }
+  .channels .section {
+    padding: 14px 18px 4px; color: var(--slack-muted); font-size: 12px; text-transform: none; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .channels .item {
+    padding: 4px 18px; color: var(--slack-text); font-size: 14px;
+    display: flex; align-items: center; gap: 8px; cursor: default;
+  }
+  .channels .item.active { background: var(--slack-side-active); color: white; }
+  .channels .item .hash { color: var(--slack-muted); font-weight: 600; width: 14px; }
+  .channels .item .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+  .channels .item.dm { padding-left: 20px; }
+  .channels .item.dm img, .channels .item.dm .av {
+    width: 18px; height: 18px; border-radius: 4px; background: #4a8fdc;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: white;
+  }
+  .channels .item.dm .av.green { background: #2bb673; }
+  .channels .item.dm .av.orange { background: #e8912d; }
+  .channels .item.dm .av.purple { background: #8e44ad; }
+  .channels .item.dm .av.casey { background: linear-gradient(135deg,#4a8fdc,#2b6cba); }
+  .channels .item.dm .av.casey::before { content: "C"; }
+
+  /* Conversation */
+  .convo { background: #1d1c1d; color: #1d1c1d; display: flex; flex-direction: column; }
+  .convo .header {
+    background: white; border-bottom: 1px solid #e8e8e8;
+    padding: 12px 24px; display: flex; align-items: center; gap: 12px;
+  }
+  .convo .header .title { font-weight: 800; color: #1d1c1d; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .convo .header .meta { color: #616061; font-size: 13px; }
+  .convo .header .casey-av {
+    width: 24px; height: 24px; border-radius: 5px;
+    background: linear-gradient(135deg,#4a8fdc,#2b6cba);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 12px;
+  }
+  .convo .messages { flex: 1; background: white; padding: 22px 24px; overflow-y: auto; }
+  .msg { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 8px 0; }
+  .msg .av {
+    width: 36px; height: 36px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 14px;
+  }
+  .msg .av.alice { background: #2bb673; }
+  .msg .av.hassan { background: #e8912d; }
+  .msg .av.casey { background: linear-gradient(135deg,#4a8fdc,#2b6cba); }
+  .msg .head { display: flex; align-items: baseline; gap: 8px; }
+  .msg .head .name { font-weight: 800; color: #1d1c1d; font-size: 15px; }
+  .msg .head .app { background: #ddd; color: #444; font-size: 10px; padding: 1px 4px; border-radius: 2px; text-transform: uppercase; font-weight: 700; }
+  .msg .head .time { color: #616061; font-size: 12px; }
+  .msg .body { color: #1d1c1d; font-size: 14.5px; line-height: 1.5; }
+  .msg .body code { background: #f4ede4; padding: 1px 4px; border-radius: 3px; color: #7c2d12; font-family: ui-monospace, monospace; font-size: 13px; }
+  .msg .body .label {
+    display: inline-block; background: #fff4d6; color: #8a5a00;
+    padding: 2px 8px; border-radius: 4px; font-size: 12.5px; font-weight: 600;
+    border: 1px solid #f0d878;
+  }
+  .msg .body .denied {
+    display: inline-block; background: #fdecec; color: #a31515;
+    padding: 2px 8px; border-radius: 4px; font-size: 12.5px; font-weight: 600;
+    border: 1px solid #f0a7a7;
+  }
+  .msg .body .approve-card {
+    margin-top: 8px; border: 1px solid #e6e6e6; border-radius: 6px; padding: 14px 16px; background: #f9f9fa;
+    max-width: 460px;
+  }
+  .msg .body .approve-card h4 { margin: 0 0 6px; font-size: 14px; color: #1d1c1d; }
+  .msg .body .approve-card .row { font-size: 13px; color: #1d1c1d; line-height: 1.7; }
+  .msg .body .approve-card .row b { color: #616061; font-weight: 600; min-width: 92px; display: inline-block; }
+  .msg .body .approve-card .actions { margin-top: 10px; display: flex; gap: 8px; }
+  .msg .body .approve-card .btn {
+    background: #007a5a; color: white; padding: 7px 14px; border-radius: 4px;
+    font-size: 13px; font-weight: 700; border: none; cursor: pointer;
+  }
+  .msg .body .approve-card .btn.deny { background: white; color: #1d1c1d; border: 1px solid #ddd; }
+  .msg .body .approve-card .role-pick {
+    display: inline-block; background: white; border: 1px solid #ddd; border-radius: 4px;
+    padding: 4px 8px; font-size: 12.5px;
+  }
+  .msg .reactions { margin-top: 6px; display: flex; gap: 4px; }
+  .reaction {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #f0f6fc; border: 1px solid #c8d8ec;
+    padding: 2px 8px; border-radius: 12px; font-size: 12px; color: #1264a3;
+  }
+
+  .convo .composer {
+    background: white; padding: 12px 24px 20px;
+  }
+  .convo .composer .box {
+    border: 1px solid #e8e8e8; border-radius: 6px; padding: 10px 14px;
+    color: #616061; font-size: 14px;
+  }
+
+  .annotation {
+    background: linear-gradient(180deg, rgba(121,192,255,0.05), rgba(121,192,255,0.01));
+    border: 1px solid rgba(121,192,255,0.25);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px; margin: 14px 0 0;
+    color: var(--ink-2); font-size: 13.5px;
+  }
+  .annotation strong { color: var(--accent); }
+
+  .pager {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 60px; padding-top: 24px; border-top: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .pager a { color: var(--accent); text-decoration: none; }
+  .pager .home { color: var(--mute); }
+</style>
+</head>
+<body>
+<div class="top">
+  <a href="01-install.html">← Chapter 1</a>
+  <div class="nav">
+    <span style="color:var(--mute)">Chapter 2 of 7</span>
+    <a href="03-slack-read.html">Next: cross-tool chat →</a>
+  </div>
+</div>
+<main>
+  <h1>The manual onboarding fallback (<code>/register</code>)</h1>
+  <p class="lede">
+    This chapter shows the <strong>manual approval flow</strong> — what happens
+    for people who fall outside Acme's default policy (contractors, externals,
+    edge cases). For comparison, Acme's actual policy is <em>auto-approve Slack
+    workspace members</em>, so most of Acme's employees never see this — they
+    DM Casey and are in immediately. Scroll past the scenes for the comparison.
+  </p>
+  <p class="who"><strong>Goal:</strong> show that the bot has <em>no</em> UPDATE permission on user records; approval lives in a separate admin role. The same guarantee holds whether onboarding is automatic or manual.</p>
+
+  <div style="background: linear-gradient(180deg, rgba(110,231,168,0.05), rgba(110,231,168,0.01)); border: 1px solid rgba(110,231,168,0.3); border-radius: 10px; padding: 16px 20px; margin: 0 0 16px;">
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      <div style="width:32px;height:32px;border-radius:8px;background:rgba(110,231,168,0.15);color:var(--ok);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0">✓</div>
+      <div>
+        <div style="font-weight:700;color:var(--ok);font-size:14px;margin-bottom:4px">Default at Acme: auto-approve Slack workspace members</div>
+        <div style="color:var(--ink-2);font-size:13.5px;line-height:1.55">
+          Set during install. Alice would normally never see <code>/register</code> — she'd DM Casey, Casey would check that she's in <code>acme.slack.com</code>, and she'd be approved as <code>dev</code> on the spot. The scenes below show the <strong>fallback</strong>: someone who isn't covered by the default policy (e.g., a contractor with a non-acme email in a workspace using domain-based policy, or a brand-new team where the admin chose manual-only).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene-label">
+    <span class="pill">Scene 1</span>
+    <span class="who-tag">Alice's Slack</span>
+    <span class="arrow">→</span>
+    <span>DMing Casey for the first time</span>
+    <span class="time">14:02</span>
+  </div>
+
+  <div class="slack">
+    <div class="ws-rail">
+      <div class="ws">A</div>
+      <div class="add">+</div>
+    </div>
+    <div class="channels">
+      <div class="workspace">Acme <span class="me">alice ●</span></div>
+      <div class="section">▾ Channels</div>
+      <div class="item"><span class="hash">#</span> general</div>
+      <div class="item"><span class="hash">#</span> payments</div>
+      <div class="item"><span class="hash">#</span> engineering</div>
+      <div class="section">▾ Direct messages</div>
+      <div class="item dm active"><span class="av casey"></span> Casey</div>
+      <div class="item dm"><span class="av green">A</span> Alice (you)</div>
+      <div class="item dm"><span class="av orange">H</span> Hassan</div>
+      <div class="item dm"><span class="av purple">B</span> Bob</div>
+    </div>
+    <div class="convo">
+      <div class="header">
+        <span class="casey-av">C</span>
+        <span class="title">Casey <span style="background:#ddd;color:#444;font-size:10px;padding:1px 5px;border-radius:2px;font-weight:700">APP</span></span>
+        <span class="meta">· Direct message</span>
+      </div>
+      <div class="messages">
+        <div class="msg">
+          <div class="av alice">A</div>
+          <div>
+            <div class="head"><span class="name">Alice Park</span><span class="time">14:02</span></div>
+            <div class="body">hey casey — what's the status on LIN-892?</div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="av casey">C</div>
+          <div>
+            <div class="head"><span class="name">Casey</span><span class="app">App</span><span class="time">14:02</span></div>
+            <div class="body">
+              <span class="denied">Access denied</span>
+              You're not on Casey's allowlist yet. To request access, run <code>/register</code> in any channel.
+              <div style="margin-top:8px;color:#616061;font-size:13px">Your admin will get a DM with your request and can approve or deny.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="composer"><div class="box">Message Casey</div></div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <strong>Why bouncing matters.</strong> The bot's database role has <code>SELECT, INSERT</code> on <code>casey_users</code> — not <code>UPDATE</code>. Even if the bot is jailbroken, it cannot promote anyone (including itself) to an approved user. Approval lives in a separate <code>casey_admin</code> role used only by the admin web UI.
+  </div>
+
+  <div class="scene-label">
+    <span class="pill">Scene 2</span>
+    <span class="who-tag">Alice's Slack</span>
+    <span class="arrow">→</span>
+    <span>Running /register</span>
+    <span class="time">14:03</span>
+  </div>
+
+  <div class="slack">
+    <div class="ws-rail">
+      <div class="ws">A</div>
+      <div class="add">+</div>
+    </div>
+    <div class="channels">
+      <div class="workspace">Acme <span class="me">alice ●</span></div>
+      <div class="section">▾ Channels</div>
+      <div class="item active"><span class="hash">#</span> general</div>
+      <div class="item"><span class="hash">#</span> payments</div>
+      <div class="item"><span class="hash">#</span> engineering</div>
+      <div class="section">▾ Direct messages</div>
+      <div class="item dm"><span class="av casey"></span> Casey</div>
+      <div class="item dm"><span class="av green">A</span> Alice (you)</div>
+      <div class="item dm"><span class="av orange">H</span> Hassan</div>
+    </div>
+    <div class="convo">
+      <div class="header">
+        <span class="title"># general</span>
+        <span class="meta">· 24 members</span>
+      </div>
+      <div class="messages">
+        <div class="msg">
+          <div class="av alice">A</div>
+          <div>
+            <div class="head"><span class="name">Alice Park</span><span class="time">14:03</span></div>
+            <div class="body">
+              <code style="background:#e8f4fb;color:#1264a3;font-weight:600">/register</code> I'm on the payments team — need to query Linear and GitHub from Slack
+            </div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="av casey">C</div>
+          <div>
+            <div class="head"><span class="name">Casey</span><span class="app">App</span><span class="time">14:03</span></div>
+            <div class="body">
+              <span style="display:inline-block;background:#e8f4fb;color:#1264a3;padding:2px 8px;border-radius:4px;font-size:12.5px;font-weight:600">Request submitted</span>
+              I've DM'd your admin with the details. You'll get a notification here when they decide.
+              <div style="margin-top:6px;color:#616061;font-size:13px">Only your name, Slack ID, email, and the reason you typed are sent — nothing else.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="composer"><div class="box">Message #general</div></div>
+    </div>
+  </div>
+
+  <div class="scene-label">
+    <span class="pill">Scene 3</span>
+    <span class="who-tag">Hassan's Slack</span>
+    <span class="arrow">→</span>
+    <span>The approval card lands in his DM with Casey</span>
+    <span class="time">14:03</span>
+  </div>
+
+  <div class="slack">
+    <div class="ws-rail">
+      <div class="ws">A</div>
+      <div class="add">+</div>
+    </div>
+    <div class="channels">
+      <div class="workspace">Acme <span class="me">hassan ●</span></div>
+      <div class="section">▾ Channels</div>
+      <div class="item"><span class="hash">#</span> general</div>
+      <div class="item"><span class="hash">#</span> engineering</div>
+      <div class="item"><span class="hash">#</span> infra</div>
+      <div class="section">▾ Direct messages</div>
+      <div class="item dm active"><span class="av casey"></span> Casey <span class="dot" style="margin-left:auto"></span></div>
+      <div class="item dm"><span class="av green">A</span> Alice</div>
+      <div class="item dm"><span class="av purple">B</span> Bob</div>
+    </div>
+    <div class="convo">
+      <div class="header">
+        <span class="casey-av">C</span>
+        <span class="title">Casey <span style="background:#ddd;color:#444;font-size:10px;padding:1px 5px;border-radius:2px;font-weight:700">APP</span></span>
+        <span class="meta">· Direct message</span>
+      </div>
+      <div class="messages">
+        <div class="msg">
+          <div class="av casey">C</div>
+          <div>
+            <div class="head"><span class="name">Casey</span><span class="app">App</span><span class="time">14:03</span></div>
+            <div class="body">
+              <span class="label">Access request</span>
+              <div class="approve-card">
+                <h4>Alice Park wants access to Casey</h4>
+                <div class="row"><b>Name:</b> Alice Park</div>
+                <div class="row"><b>Slack ID:</b> U_ALICE_ACME</div>
+                <div class="row"><b>Email:</b> alice@acme.com</div>
+                <div class="row"><b>Reason:</b> on the payments team — need to query Linear and GitHub from Slack</div>
+                <div class="row"><b>Requested:</b> just now</div>
+                <div class="actions">
+                  <button class="btn">✓ Approve as</button>
+                  <span class="role-pick">dev ▾</span>
+                  <button class="btn deny">Deny</button>
+                </div>
+              </div>
+              <div style="margin-top:8px;color:#616061;font-size:12.5px">Approval writes to the admin DB role, not Casey's role. Casey can read the new status on its next turn.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="composer"><div class="box">Message Casey</div></div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <strong>How approval actually happens.</strong> Hassan's click hits the admin web UI (gated by his Slack identity), which uses the <code>casey_admin</code> Postgres role to set <code>status='approved', role='dev'</code> on Alice's row. Postgres fires <code>NOTIFY casey_users_changed</code>; casey-app's listener picks it up and Alice is recognized on her next message — no restart, no polling.
+  </div>
+
+  <div class="scene-label">
+    <span class="pill">Scene 4</span>
+    <span class="who-tag">Alice's Slack</span>
+    <span class="arrow">→</span>
+    <span>~90 seconds later</span>
+    <span class="time">14:04</span>
+  </div>
+
+  <div class="slack">
+    <div class="ws-rail">
+      <div class="ws">A</div>
+      <div class="add">+</div>
+    </div>
+    <div class="channels">
+      <div class="workspace">Acme <span class="me">alice ●</span></div>
+      <div class="section">▾ Channels</div>
+      <div class="item"><span class="hash">#</span> general</div>
+      <div class="item"><span class="hash">#</span> payments</div>
+      <div class="item"><span class="hash">#</span> engineering</div>
+      <div class="section">▾ Direct messages</div>
+      <div class="item dm active"><span class="av casey"></span> Casey <span class="dot" style="margin-left:auto"></span></div>
+      <div class="item dm"><span class="av green">A</span> Alice (you)</div>
+      <div class="item dm"><span class="av orange">H</span> Hassan</div>
+    </div>
+    <div class="convo">
+      <div class="header">
+        <span class="casey-av">C</span>
+        <span class="title">Casey <span style="background:#ddd;color:#444;font-size:10px;padding:1px 5px;border-radius:2px;font-weight:700">APP</span></span>
+        <span class="meta">· Direct message</span>
+      </div>
+      <div class="messages">
+        <div class="msg">
+          <div class="av casey">C</div>
+          <div>
+            <div class="head"><span class="name">Casey</span><span class="app">App</span><span class="time">14:04</span></div>
+            <div class="body">
+              <span style="display:inline-block;background:#e6f7ee;color:#007a5a;padding:2px 8px;border-radius:4px;font-size:12.5px;font-weight:600;border:1px solid #b6e2cb">Approved</span>
+              You're in! Your role is <code>dev</code>. Try asking me about a ticket or PR — I can read Linear, GitHub, and Notion. For write-effect actions on sensitive repos I'll ask your admin to approve.
+            </div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="av alice">A</div>
+          <div>
+            <div class="head"><span class="name">Alice Park</span><span class="time">14:04</span></div>
+            <div class="body">thanks! ok let me try — what's the status on LIN-892?</div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="av casey">C</div>
+          <div>
+            <div class="head"><span class="name">Casey</span><span class="app">App</span><span class="time">14:04</span></div>
+            <div class="body"><span style="color:#616061">working…</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="composer"><div class="box">Message Casey</div></div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <strong>End of manual-fallback scene.</strong> Total time from "Casey is in Slack" to "Alice can use Casey" via manual approval: 4 minutes. Hassan never opened a SQL client. Casey never gained UPDATE permission. Audit log now has 3 rows: <code>denied</code>, <code>register_request</code>, <code>approval</code>.
+  </div>
+
+  <div class="scene-label" style="margin-top:48px">
+    <span class="pill" style="background:rgba(110,231,168,0.1);border-color:rgba(110,231,168,0.4);color:var(--ok)">Comparison</span>
+    <span class="who-tag" style="color:var(--ok)">Acme's actual default — auto-approve</span>
+    <span class="arrow">→</span>
+    <span>What 95% of Acme employees experience</span>
+  </div>
+
+  <div class="slack">
+    <div class="ws-rail">
+      <div class="ws">A</div>
+      <div class="add">+</div>
+    </div>
+    <div class="channels">
+      <div class="workspace">Acme <span class="me">diana ●</span></div>
+      <div class="section">▾ Channels</div>
+      <div class="item"><span class="hash">#</span> general</div>
+      <div class="item"><span class="hash">#</span> design</div>
+      <div class="section">▾ Direct messages</div>
+      <div class="item dm active"><span class="av casey"></span> Casey</div>
+      <div class="item dm"><span class="av green">D</span> Diana (you)</div>
+    </div>
+    <div class="convo">
+      <div class="header">
+        <span class="casey-av">C</span>
+        <span class="title">Casey <span style="background:#ddd;color:#444;font-size:10px;padding:1px 5px;border-radius:2px;font-weight:700">APP</span></span>
+        <span class="meta">· Direct message</span>
+      </div>
+      <div class="messages">
+        <div class="msg">
+          <div class="av" style="background:#8e44ad">D</div>
+          <div>
+            <div class="head"><span class="name">Diana Chen</span><span class="time">15:22</span></div>
+            <div class="body">hey casey — what's on the design review board this week?</div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="av casey">C</div>
+          <div>
+            <div class="head"><span class="name">Casey</span><span class="app">App</span><span class="time">15:22</span></div>
+            <div class="body">
+              <span style="display:inline-block;background:#e6f7ee;color:#007a5a;padding:2px 8px;border-radius:4px;font-size:12.5px;font-weight:600;border:1px solid #b6e2cb">Welcome — auto-approved</span>
+              You're in! Your role is <code>dev</code> (auto-granted because you're a member of acme.slack.com).
+              <div style="margin-top:8px;color:#1d1c1d;font-size:14.5px;line-height:1.55">Looking up the design review board now…</div>
+              <div style="margin-top:6px;color:#616061;font-size:12.5px">Acme's user policy is set to auto-approve workspace members. Your admin (@hassan) can change this from the admin UI.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="av casey">C</div>
+          <div>
+            <div class="head"><span class="name">Casey</span><span class="app">App</span><span class="time">15:22</span></div>
+            <div class="body" style="color:#616061">3 items on "Design review needed" — DSN-104, DSN-108, DSN-115. Want me to summarize?</div>
+          </div>
+        </div>
+      </div>
+      <div class="composer"><div class="box">Message Casey</div></div>
+    </div>
+  </div>
+
+  <div class="annotation" style="background:linear-gradient(180deg,rgba(110,231,168,0.05),rgba(110,231,168,0.01));border-color:rgba(110,231,168,0.3)">
+    <strong style="color:var(--ok)">End-of-chapter comparison.</strong> Diana's path took <em>0 seconds of human time</em> — Casey auto-approved her against the policy and immediately answered her question. Alice's path (the scenes above) took 90 seconds of Hassan's attention. For most companies, Diana's path is what 95% of users will experience; Alice's path is reserved for the 5% who fall outside the policy (contractors, externals, guest accounts). Both paths share the same security guarantee: the bot still cannot UPDATE the users table — auto-approval writes happen via the admin Postgres role, not the bot's role.
+  </div>
+
+  <div class="pager">
+    <a href="01-install.html">← Chapter 1: install</a>
+    <a class="home" href="index.html">Tour home</a>
+    <a href="03-slack-read.html">Next: cross-tool chat →</a>
+  </div>
+</main>
+</body>
+</html>
