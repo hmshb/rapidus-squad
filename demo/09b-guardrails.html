@@ -184,9 +184,10 @@
     <h2>First message to a new repo — sandbox needs to be set up</h2>
     <p class="scene-lede">
       There's no warm pool. The first time anyone asks Casey to work on
-      <code>acme/billing</code>, the sandbox container does a one-time clone +
+      <code>acme/billing</code>, the sandbox container does a one-time bare clone +
       dependency install. Casey tells the user up front, and persists the
-      <code>/workdir</code> volume so the next request is fast.
+      bare repo + shared dependency cache (per-repo, not per-branch) so the next
+      request is fast — and so three devs on three branches can run in parallel.
     </p>
 
     <div class="grid2">
@@ -220,7 +221,7 @@
                 <div class="status-body">
                   <ul class="todo-list">
                     <li class="todo-item completed"><div class="todo-mark completed"></div><div class="todo-text">Pull <code>rapidussquad/sandbox:node-20</code> (cached locally)</div></li>
-                    <li class="todo-item in_progress"><div class="todo-mark in_progress"></div><div class="todo-text">Clone <code>acme/billing</code> into <code>/workdir</code></div></li>
+                    <li class="todo-item in_progress"><div class="todo-mark in_progress"></div><div class="todo-text">Bare-clone <code>acme/billing</code> into <code>/var/rapidussquad/repos/acme-billing/.git</code></div></li>
                     <li class="todo-item pending"><div class="todo-mark pending"></div><div class="todo-text">Run <code>npm ci</code> + <code>playwright install</code></div></li>
                     <li class="todo-item pending"><div class="todo-mark pending"></div><div class="todo-text">Read LIN-1102 and begin work</div></li>
                   </ul>
@@ -230,10 +231,11 @@
               <div class="notice-card info" style="margin-top:10px">
                 <div class="label">One-time setup</div>
                 <div class="desc">
-                  This is the first request for <code>acme/billing</code>, so I'm setting
-                  up its sandbox workspace. After this, future requests on this repo
-                  reuse the persistent volume (~5–10s spin-up). I'll start on your
-                  ticket as soon as setup finishes.
+                  This is the first request for <code>acme/billing</code>, so I'm
+                  setting up the bare clone and shared dependency cache for this repo.
+                  After this, every branch I work on becomes a cheap <code>git worktree</code>
+                  off the bare clone (~5–10s spin-up) — and parallel branches don't
+                  collide. I'll start on your ticket as soon as setup finishes.
                 </div>
               </div>
             </div>
@@ -243,20 +245,21 @@
 
       <div class="explainer">
         <h4>What's happening</h4>
-        <h3>Lazy container + persistent volume</h3>
+        <h3>Bare clone + shared cache (persistent per repo) · worktree (ephemeral per branch)</h3>
         <p>
-          v2.1 dropped the per-repo warm pool. Instead, the sandbox is
-          <em>lazy-started</em> — the first request to any repo pays a one-time
-          cost (clone + dependency install). The resulting <code>/workdir</code>
-          lives on a docker volume keyed by repo.
+          v2.1 dropped the per-repo warm pool <em>and</em> the single-<code>/workdir</code>-per-repo
+          model. Instead, two things are persistent <em>per repo</em>: a bare clone
+          (<code>/var/rapidussquad/repos/&lt;repo&gt;/.git</code>) and a shared dependency
+          cache (<code>node_modules</code>, <code>.venv</code>, Playwright browsers).
         </p>
-        <p>Subsequent requests:</p>
+        <p>When Casey actually starts work on a branch:</p>
         <ul>
-          <li>Fresh container, mounts the existing volume</li>
-          <li>Skip the slow part (deps already installed)</li>
+          <li><code>git worktree add</code> off the bare clone into <code>/var/rapidussquad/worktrees/&lt;repo&gt;/&lt;branch&gt;/</code></li>
+          <li>Fresh sandbox container, mounts the worktree at <code>/workdir</code> and the shared cache</li>
           <li>5–10 seconds to ready, not 45</li>
+          <li><strong>Three devs on three branches → three sandboxes in parallel, no checkout collision</strong></li>
         </ul>
-        <p>TTL eviction kicks in after 14 days untouched — volume is deleted and disk reclaimed.</p>
+        <p>Worktree is removed when the branch's PR is merged or closed. Bare clone + cache evict after 14 days untouched.</p>
         <div class="src">Spec: <a href="../docs/casey-self-hosted-product-plan-v2.html">v2.1 plan §9 — sandbox lifecycle</a></div>
       </div>
     </div>

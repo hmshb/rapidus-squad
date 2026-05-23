@@ -75,9 +75,11 @@ SLACK_SIGNING_SECRET=your-signing-secret
 # This is only needed if you don't use a Claude subscription
 
 # ANTHROPIC_API_KEY=your-anthropic-api-key
-# CLAUDE_CODE_USE_BEDROCK=1
-# CLAUDE_CODE_USE_VERTEX=1
 ```
+
+> **Note:** Bedrock / Vertex LLM routing is not supported in v1. The sandbox
+> egress proxy allowlists only `api.anthropic.com` (SPKI-pinned). Multi-vendor
+> LLM support is deferred to v1.x.
 
 ### 5. Run the Bot
 
@@ -225,19 +227,13 @@ All MCP tools are automatically allowed and follow the pattern: `mcp__serverName
 
 ## Advanced Configuration
 
-### Using AWS Bedrock
-Set these environment variables:
-```env
-CLAUDE_CODE_USE_BEDROCK=1
-# AWS credentials should be configured via AWS CLI or IAM roles
-```
+### LLM provider (v1: Anthropic direct only)
 
-### Using Google Vertex AI
-Set these environment variables:
-```env
-CLAUDE_CODE_USE_VERTEX=1
-# Google Cloud credentials should be configured
-```
+v1 routes all Claude traffic to `api.anthropic.com` through the sandbox egress
+proxy (SPKI-pinned, audit-logged, per-turn body cap + rate limit). AWS Bedrock
+and Google Vertex AI routing are **deferred to v1.x** — adding either requires
+extending the egress allowlist + SPKI pin set and is an ops change, not a code
+change in Casey itself. See §13 of `docs/casey-self-hosted-product-plan-v2.html`.
 
 ## Development
 

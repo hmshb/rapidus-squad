@@ -110,8 +110,10 @@
   sandbox image, JSONL archive toggle, two-admin rule, custom MCP via URL
   paste); <em>(6)</em> hosted SSE MCPs get a release-CI smoke test instead of
   protocol-version "pinning"; <em>(7)</em> warm pool for sandbox containers
-  dropped in favor of lazy containers + persistent <code>/workdir</code>
-  volumes; <em>(8)</em> <code>node-cron</code> gets a <code>last_fired_at</code>
+  dropped in favor of bare clone + shared dep cache per repo (persistent) +
+  <code>git worktree</code> per active branch (ephemeral, parallel) — this
+  supersedes the earlier "lazy container + persistent <code>/workdir</code> volume"
+  model, which was correctness-broken for parallel feature branches; <em>(8)</em> <code>node-cron</code> gets a <code>last_fired_at</code>
   persistence story for missed runs; <em>(9)</em> Postgres role matrix becomes
   a v1 migration artifact, not a sentence in a doc; <em>(10)</em>
   <code>NOTICE</code> file generated in CI from the start.
@@ -161,51 +163,64 @@ vendored MCP servers + sandbox base images), the Slack and GitHub manifests,
 the connector recipe library, and the admin web UI bundled in the image.
 </p>
 
-<pre>┌───── Customer infrastructure (their Docker host / VPC / k8s) ──────┐
-│                                                                     │
-│   ┌──────────────────┐         ┌────────────────────────────┐      │
-│   │  casey-router    │ ◄─────► │  postgres                  │      │
-│   │  (Node + Bolt)   │         │  • casey_users             │      │
-│   │  • Slack events  │         │  • approvals               │      │
-│   │  • Admin web UI  │         │  • audit log (90d default) │      │
-│   │  • Claude        │         │  • connector configs       │      │
-│   │    orchestration │         │  • schedules               │      │
-│   │  • Holds NO      │         │  • repo_trust, user_policy │      │
-│   │    creds — calls │         │  • cron last_fired_at      │      │
-│   │    broker for    │         │  ── role: casey_bot (SEL/  │      │
-│   │    every write   │         │     INSERT-mostly)         │      │
-│   └────┬────┬────────┘         │  ── role: casey_admin (UI) │      │
-│        │    │                  └────────────────────────────┘      │
-│   broker RPC (local socket; fixed menu: openPR, push,             │
-│   comment, …)                                                      │
-│        ▼                                                            │
-│   ┌──────────────────────────────────────┐                         │
-│   │  casey-broker                         │                         │
-│   │  • holds GitHub App private key       │                         │
-│   │  • holds OAuth refresh tokens         │                         │
-│   │  • enforces rapidus/* branch          │                         │
-│   │    allowlist (server-side)            │                         │
-│   │  • signs + makes outbound API calls   │                         │
-│   └──────┬─────────────────────────┬──────┘                         │
-│          │                          │                                │
-│  vendored MCP                       │ sandbox RPC (private net)    │
-│  ▼                                  ▼                                │
-│ ┌──────────────────────┐  ┌────────────────────────────────────┐   │
-│ │ MCP server pool       │  │  casey-sandbox  (one per repo)     │   │
-│ │ (vendored, pinned)    │  │  • repo clone in /workdir         │   │
-│ │ ├─ github-mcp         │  │  • claude CLI runs HERE           │   │
-│ │ ├─ notion-mcp (SSE)   │  │  • bash allowlist                 │   │
-│ │ ├─ linear-mcp         │  │  • path enforcer (resolved-path)  │   │
-│ │ └─ slack-mcp          │  │  • env scrub (PATH/HOME/LANG only)│   │
-│ └──────────────────────┘  │  • egress: ONLY api.anthropic.com │   │
-│                            │    via cert-pinned proxy          │   │
-│   ┌──────────────────┐    │  • CPU / RAM / wall-clock caps    │   │
-│   │  scheduler       │    │  • lazy start + persistent volume │   │
-│   │  (node-cron +    │    │  • holds NO credentials           │   │
-│   │   last_fired_at) │    └────────────────────────────────────┘   │
-│   └──────────────────┘                                              │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
+<pre>┌───── Customer infrastructure (their Docker host / VPC / k8s) ──────────────┐
+│                                                                             │
+│   ┌──────────────────┐         ┌────────────────────────────┐              │
+│   │  casey-router    │ ◄─────► │  postgres                  │              │
+│   │  (Node + Bolt)   │         │  • casey_users             │              │
+│   │  • Slack events  │         │  • approvals               │              │
+│   │  • Admin web UI  │         │  • audit log (90d default) │              │
+│   │  • Session state │         │  • connector configs       │              │
+│   │    + UX render   │         │  • schedules               │              │
+│   │  • Spawns sandbox│         │  • repo_trust, user_policy │              │
+│   │    turns         │         │  • cron last_fired_at      │              │
+│   │  • Holds NO      │         │  ── role: casey_bot (SEL/  │              │
+│   │    creds         │         │     INSERT-mostly)         │              │
+│   └────┬─────────────┘         │  ── role: casey_admin (UI) │              │
+│        │                       └────────────────────────────┘              │
+│        │  spawn-turn RPC                                                    │
+│        ▼                                                                    │
+│   ┌──────────────────────────────────────────────────────────┐             │
+│   │  casey-sandbox  (worktree per active branch, parallel)    │             │
+│   │  • bare clone + shared dep cache mounted from host       │             │
+│   │  • per-branch git worktree (Alice + Bob + Carol parallel)│             │
+│   │  • claude CLI runs HERE (in-container edit→test loop)    │             │
+│   │  • bash allowlist                                         │             │
+│   │  • path enforcer (resolved-path, /workdir-scoped)        │             │
+│   │  • env scrub (PATH / HOME / LANG only)                   │             │
+│   │  • CPU / RAM / wall-clock caps · holds NO credentials    │             │
+│   │  • secret redaction on inbound tool results              │             │
+│   └─────┬─────────────────────────────────────────┬──────────┘             │
+│         │                                          │                        │
+│   broker RPC (local socket;                  egress proxy (sidecar;         │
+│   fixed menu: openPR, push,                   only api.anthropic.com,       │
+│   comment, MCP read+write,                    SPKI-pinned w/ rollover key,  │
+│   diff-scanned on write)                      audit-logged bodies,          │
+│         │                                     per-turn cap + rate limit)    │
+│         ▼                                          │                        │
+│   ┌──────────────────────────────────────┐        │                        │
+│   │  casey-broker                         │        │                        │
+│   │  • holds GitHub App private key       │        │                        │
+│   │  • holds OAuth refresh tokens         │        │                        │
+│   │  • enforces rapidus/* branch          │        │                        │
+│   │    allowlist (server-side)            │        │                        │
+│   │  • enforces per-repo trust mode       │        │                        │
+│   │  • diff-scans outbound patches        │        │                        │
+│   │  • signs + makes outbound API calls   │        │                        │
+│   └──────┬───────────────────────────────┘        │                        │
+│          │ vendored MCP                            │                        │
+│          ▼                                          ▼                        │
+│ ┌──────────────────────┐                      api.anthropic.com             │
+│ │ MCP server pool       │                      (SPKI-pinned only host)      │
+│ │ (vendored, pinned)    │                                                   │
+│ │ ├─ github-mcp         │                                                   │
+│ │ ├─ notion-mcp (SSE)   │      ┌──────────────────┐                        │
+│ │ └─ slack-mcp          │      │  scheduler       │                        │
+│ │   (linear-mcp: v1.x)  │      │  (node-cron +    │                        │
+│ └──────────────────────┘       │   last_fired_at) │                        │
+│                                 └──────────────────┘                        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
          ▲                                       │
          │  signed events                        │  API calls (OAuth tokens
          │  from Slack                           ▼   live in casey-broker only)
@@ -300,7 +315,11 @@ docker compose up -d</pre>
     money / auth / billing), or <code>read-only</code> (Casey can read and
     analyze, never writes; for infra / secrets repos). Sensitive-looking repo
     names are pre-flagged as <code>gated</code>. Branch protection on
-    <code>main</code> is verified at this step and re-checked daily.
+    <code>main</code> is verified at this step, subscribed to via GitHub webhook
+    (<code>branch_protection_rule</code> events) for instant detection of
+    weakening or removal, re-checked daily as a safety net for dropped webhooks,
+    and re-verified on write when cached state is older than 25 hours. Writes
+    fail-closed when protection is weakened or stale.
   </li>
   <li>
     <strong>Choose user onboarding policy.</strong>
@@ -397,12 +416,6 @@ sandbox gives Casey local execution. They're complementary, not alternatives.
       <td>Per-repo trust mode (<code>trusted-author</code> / <code>gated</code> / <code>read-only</code>) — see §9. Branch protection on <code>main</code> is the merge gate, always.</td>
     </tr>
     <tr>
-      <td>linear-mcp</td>
-      <td>Linear API key</td>
-      <td>Search issues, read details, comment, create</td>
-      <td>L3 reaction-confirm for <code>create_issue</code>, <code>update_issue_status</code> on high-priority items</td>
-    </tr>
-    <tr>
       <td>notion-mcp</td>
       <td>Notion OAuth</td>
       <td>Search, read pages, create pages, append blocks</td>
@@ -411,7 +424,7 @@ sandbox gives Casey local execution. They're complementary, not alternatives.
   </tbody>
 </table>
 <p class="muted">
-  Post-v1 connectors (Google Drive, Jira, custom MCP via URL paste) follow the same vendor-or-config pattern. Customers wiring custom servers via URL paste accept that they're outside our pinning guarantee.
+  <strong>v1.x connectors:</strong> <code>linear-mcp</code> (Linear API key; search issues, read details, comment, create; L3 reaction-confirm on <code>create_issue</code> / <code>update_issue_status</code>) lands when a Linear-using partner shows up — same vendored-at-pinned-commit pattern as github-mcp and slack-mcp. <strong>Post-v1 connectors</strong> (Google Drive, Jira, custom MCP via URL paste) follow the same vendor-or-config pattern. Customers wiring custom servers via URL paste accept that they're outside our pinning guarantee.
 </p>
 <p class="muted">
   <strong class="purple">Casey-app policies layered on top of github-mcp.</strong>
@@ -616,9 +629,8 @@ role can never reach these tables for writes.
 ┌─────────────────────────────────────────────────┐
 │ ✅ slack-mcp   acme.slack.com  · 30s ago         │
 │ ✅ github-mcp  acme org · 5 repos · 2m ago       │
-│ ✅ linear-mcp  acme workspace · 14m ago          │
 │ ⚠  notion-mcp  401 (7m ago) [Reauth]             │
-│ ➕ Add a connector…                              │
+│ ➕ Add a connector…  (linear-mcp lands in v1.x)  │
 └─────────────────────────────────────────────────┘
 </div>
 </div>
@@ -633,7 +645,7 @@ role can never reach these tables for writes.
 │ acme/auth-service   gated           ● protected │
 │ acme/infrastructure read-only           —       │
 └─────────────────────────────────────────────────┘
-Daily branch-protection re-check: ✓ all good
+Branch protection: webhook ✓ live · last re-check 2m ago · all good
 </div>
 </div>
 
@@ -673,15 +685,17 @@ Daily branch-protection re-check: ✓ all good
 │                                                              │
 │  ── Connectors ──────────────────────────────────────────    │
 │  github-mcp     ●  ok        2m ago                          │
-│  linear-mcp     ●  ok        14m ago                         │
 │  notion-mcp     ⚠  degraded  401, 7m ago                     │
 │  slack-mcp      ●  ok        30s ago                         │
+│  (linear-mcp: deferred to v1.x)                              │
 │                                                              │
-│  ── Sandbox pool (one per repo) ─────────────────────────    │
-│  acme/web         ●  warm   last used: 3m ago                │
-│  acme/api         ●  warm   last used: 1h ago                │
-│  acme/billing     ○  cold   last used: 6d ago                │
-│  acme/auth-svc    ○  cold   last used: 12d ago               │
+│  ── Sandboxes (worktree per active branch) ──────────────    │
+│  acme/api · rapidus/fix-flaky-test    ●  active  30s ago     │
+│  acme/api · rapidus/stripe-upgrade    ●  active  2m ago      │
+│  acme/web · rapidus/refund-logs       ●  active  8m ago      │
+│  acme/billing · (no active branches)  ○  idle    6d ago      │
+│  acme/auth-svc · (no active branches) ○  idle    12d ago     │
+│  Bare clones + dep caches: 5 repos, 4.2 GB on disk           │
 │                                                              │
 │  ── Last successful turn ────────────────────────────────    │
 │  4m ago • #engineering • alice@acme.com                      │
@@ -753,7 +767,7 @@ controls the sandbox needs. The threat moves from "host compromise"
     <tr>
       <td>Prompt injection via tool-returned content (e.g., a Notion page)</td>
       <td>Path enforcer + Bash allowlist (after-the-fact)</td>
-      <td class="ok">Five-layer block: (1) bash allowlist, (2) path enforcer on resolved absolute paths (defeats symlinks / <code>/proc/self/cwd</code>), (3) egress proxy allowlists ONLY <code>api.anthropic.com</code> with cert pin, (4) per-turn outbound-body size cap + rate limit on the proxy (large exfil becomes noisy), (5) secret redaction on tool inputs before Claude sees them + diff scan on outbound patches before push. Anomaly detector flags &gt;1 violation per turn → user-pause + admin DM.</td>
+      <td><strong>Containment, not prevention.</strong> We treat prompt injection as an unsolved problem in the LLM-agent space and design for bounded blast radius rather than perfect blocking. <strong>Strong primary controls:</strong> (1) bash allowlist inside the sandbox, (2) path enforcer on resolved absolute paths (defeats symlinks / <code>/proc/self/cwd</code>), (3) network egress allowlist — sandbox can only reach <code>api.anthropic.com</code> via SPKI-pinned proxy; no other host is reachable. <strong>Strong narrow control:</strong> (4) outbound diff scan blocks credential-shaped strings reaching GitHub before broker push. <strong>Auxiliary signals</strong> (raise the bar, do not foreclose exfil-via-Anthropic-context): (5) per-turn outbound-body size cap + rate limit — makes anomalous traffic noisier but not impossible, because legitimate Claude context is already large; (6) regex secret redaction on tool inputs before Claude sees them — catches common formats (AWS keys, JWTs, PEM markers), misses custom enterprise token formats and obfuscated secrets. Anomaly detector flags &gt;1 control violation per turn → user-pause + admin DM. <strong>Residual risk:</strong> a sophisticated injection can route exfiltration through the legitimate Claude→Anthropic conversation channel; we accept this and rely on the diff scan + per-repo trust modes + branch protection + required human PR review to prevent exfiltration from becoming a write.</td>
     </tr>
     <tr>
       <td>Compromise of <code>casey-router</code> process (RCE in a route handler, bad npm dep, etc.)</td>
@@ -769,6 +783,11 @@ controls the sandbox needs. The threat moves from "host compromise"
       <td>Compromised Slack user account (not admin) → PR primitive</td>
       <td>—</td>
       <td class="ok"><strong>Channel-scoped trust + per-user quota.</strong> Casey only honors write requests in admin-marked write-enabled channels (set in repo trust mode screen). A daily cap of N PRs/user/repo (default 5). A compromised <code>dev</code> account in <code>#random</code> cannot open PRs at all; in a write-enabled channel they get N PRs before being rate-limited — visible to reviewers, not a PR storm. Admin remains fully trusted (see trust boundary below).</td>
+    </tr>
+    <tr>
+      <td>Compromised GitHub account → puppets Casey via PR review comments</td>
+      <td>—</td>
+      <td class="ok"><strong>PR review comments do not auto-trigger Casey.</strong> GitHub <code>pull_request_review_comment</code> webhooks surface in the PR's Slack thread as a Casey message; the <em>customer's Slack user</em> (not the reviewer) must 👍 before Casey acts. A compromised GitHub account that comments cannot puppet Casey without also compromising the corresponding Slack identity. PR review replies count against the same per-user PR quota (at 0.2/reply).</td>
     </tr>
     <tr>
       <td>Force-push to <code>main</code> / rewriting history</td>
@@ -788,7 +807,7 @@ controls the sandbox needs. The threat moves from "host compromise"
     <tr>
       <td>Sandbox escape onto the host</td>
       <td>—</td>
-      <td>No <code>/var/run/docker.sock</code> mount; no privileged mode; seccomp profile; AppArmor profile (where the host supports it). Adversarial test suite (A1–A20) shipped as a regression target — runs in CI on every release.</td>
+      <td>No <code>/var/run/docker.sock</code> mount; no privileged mode; seccomp profile; AppArmor profile (where the host supports it). Adversarial test suite split: <strong>A1–A8 gate every release</strong> (load-bearing controls); A9–A20 run nightly against <code>main</code> and fail on regression.</td>
     </tr>
     <tr>
       <td><code>/workdir</code> corruption (from inside sandbox)</td>
@@ -822,7 +841,7 @@ controls the sandbox needs. The threat moves from "host compromise"
 </p>
 
 <p>
-Net effect: the single-tenant codebase's hardening (bash allowlist, path enforcer, env scrub, restricted user) all <strong>port directly into the sandbox container</strong>, plus a few new layers (network egress isolation, resource caps, AppArmor) that only make sense in a containerized model. The threat model becomes the customer's container security, which is a problem operations teams already know how to solve — and which gets validated weekly by the A1–A20 adversarial test suite shipped with the release.
+Net effect: the single-tenant codebase's hardening (bash allowlist, path enforcer, env scrub, restricted user) all <strong>port directly into the sandbox container</strong>, plus a few new layers (network egress isolation, resource caps, AppArmor) that only make sense in a containerized model. The threat model becomes the customer's container security, which is a problem operations teams already know how to solve — and which gets validated by the adversarial test suite shipped with the release — A1–A8 gate every release CI (~8 min), A9–A20 run as a nightly cron against <code>main</code> and fail on regression.
 </p>
 
 <!-- ============================================================== -->
@@ -926,8 +945,8 @@ Claude's edit→test loop is</strong>.
 
 <p><strong>Sandbox shape (decided):</strong></p>
 <ul>
-  <li><strong>One sandbox per repo, lazy-started with persistent volume.</strong> No warm pool. Cold start (clone + <code>npm ci</code> + <code>playwright install</code>) is paid once per repo on the first request; the resulting <code>/workdir</code> lives on a docker volume keyed by repo. Subsequent requests spin up a fresh container and re-attach the existing volume — 5–10 seconds, not minutes. TTL eviction on the <em>volume</em> (default 14 days untouched → delete + reclaim disk). Casey posts a one-time "Setting up sandbox for <code>acme/api</code>… ~45s" message on first touch per repo so the wait is expected.</li>
-  <li><strong>Egress proxy: only <code>api.anthropic.com</code>, cert-pinned.</strong> A small sidecar container sits between the sandbox and the internet. Hostname allowlist + TLS cert pin (rejects redirects via DNS rewriting). Every outbound request body is written to the audit log before forwarding. Per-turn body-size cap + rate limit (large exfil becomes noisy + obvious). DNS resolution to any other host fails closed.</li>
+  <li><strong>Bare clone + shared dependency cache per repo (persistent). Git worktree per active branch (ephemeral, parallel).</strong> <em>Persistent per repo:</em> a bare clone of the GitHub repository under <code>/var/rapidussquad/repos/&lt;repo&gt;/.git</code> and a shared dependency cache (<code>node_modules</code>, <code>.venv</code>, Playwright browsers, <code>~/.cache/pip</code>) under <code>/var/rapidussquad/cache/&lt;repo&gt;/</code>. <em>Ephemeral per active branch:</em> when Casey starts work on <code>rapidus/fix-flaky-test</code>, the orchestrator runs <code>git worktree add</code> against the bare clone into <code>/var/rapidussquad/worktrees/&lt;repo&gt;/&lt;branch&gt;/</code>, mounts the shared cache, and spawns a sandbox container against the worktree. Three devs on three branches = three sandboxes in parallel, no <code>/workdir</code> contention, no checkout collision. Same-branch concurrent requests (rare in practice) hit a small per-branch queue. <em>Lifecycle:</em> worktree created on first turn against a branch, evicted when the branch's PR merges/closes or after 7 days idle; cache evicted after 30 days idle; bare clone removed only when the repo connector is disconnected. Cold-start cost (clone + <code>npm ci</code> + <code>playwright install</code>) is paid once per repo on first touch (~30–60s with a visible "Setting up sandbox for <code>acme/api</code>…" message); subsequent branches re-use the cache and are ready in 5–10s. <strong>This supersedes the v2.1 "one sandbox per repo with persistent <code>/workdir</code> volume" decision</strong> — that model assumed one branch checked out at a time, which is correctness-broken for any team with parallel feature branches (i.e., every real engineering team). The new model is parallel by default and reserves queueing for the rare same-branch collision.</li>
+  <li><strong>Egress proxy: only <code>api.anthropic.com</code>, SPKI-pinned.</strong> A small sidecar container sits between the sandbox and the internet. Hostname allowlist + TLS Subject Public Key Info pin (pin the public key, not the leaf cert — leaf certs rotate every ~90 days and would break every install simultaneously; SPKI rotates only when Anthropic actually changes their key). Pin set includes current key + published rollover key for zero-downtime key rotation. Release-CI fetches the live <code>api.anthropic.com</code> certificate chain and asserts the pinned SPKI is still present — drift fails the build before customers break. Rejects redirects via DNS rewriting. Every outbound request body is written to the audit log before forwarding. Per-turn body-size cap + rate limit (anomalous traffic becomes noisier; not a hard exfil block — legitimate Claude context is already large). DNS resolution to any other host fails closed.</li>
   <li><strong>Secret redaction on tool inputs.</strong> Before the sandbox hands Claude a tool result (a file read, an MCP response), a redactor scrubs anything matching credential shapes (API key formats, AWS access keys, PEM headers, JWTs). Claude can't relay what it never sees.</li>
   <li><strong>Diff scan before push.</strong> Casey-router scans the final patch for credential-shaped strings before asking casey-broker to push. Blocks the push and DMs the admin if anything trips.</li>
   <li><strong>Runs the whole dev-team-hybrid pipeline.</strong> Sandbox image is ~2–3 GB with Chromium — closer to "dev environment in a box" than "test runner in a box." Per-language overlays (<code>python-3.12</code>, <code>node-20</code>) cover ~80% of customers; <code>fullstack</code> combo image and <code>.casey/sandbox.Dockerfile</code> escape hatch are post-v1.</li>
@@ -945,8 +964,18 @@ Casey opens real PRs directly (not drafts). The customer's CI + branch protectio
     <tr><td><code>read-only</code></td><td>Read repo, post analysis to Slack, no writes at all</td><td>Infrastructure, secrets repos, anything Casey should never touch</td></tr>
   </tbody>
 </table>
-<p><strong>Required guardrails for trusted-author mode:</strong> branch protection on <code>main</code> with required reviews (≥1 human), required CI green, no force-push, no admin bypass; checked at connector-setup time and re-checked daily. PR storm cap: ≥3 open Casey PRs in a repo pauses Casey on that repo until one closes.</p>
+<p><strong>Required guardrails for trusted-author mode:</strong> branch protection on <code>main</code> with required reviews (≥1 human), required CI green, no force-push, no admin bypass; checked at connector-setup time, kept fresh via GitHub <code>branch_protection_rule</code> webhook (instant detection of weakening/removal → repo writes paused + admin DM), daily re-check as belt-and-suspenders for dropped webhooks, plus a 25-hour freshness rule on cached state at write time (broker refuses to push if cached state is stale and re-verifies before retry). PR storm cap: ≥3 open Casey PRs in a repo pauses Casey on that repo until one closes.</p>
 <p><strong>Where in the roadmap:</strong> <strong>weeks 4–12 of v1</strong>. Becomes the only first-class compute path; A persists as invisible degraded-mode (see above).</p>
+
+<h3>Iterative PR review (decided)</h3>
+<p>The most common follow-up after Casey opens a PR is a human reviewer leaving comments: <em>"rename this variable," "add a test for the empty-list case," "why recursion here?"</em> This must work as a conversation, not a cold-start each time.</p>
+<ul>
+  <li><strong>Session keying.</strong> Each <code>(repo, branch)</code> pair has a sticky Claude session — same conversation history, same worktree, same sandbox container. When a reviewer triggers Casey on PR #1306 (branch <code>rapidus/fix-flaky-test</code>), the orchestrator resumes that session rather than cold-starting. Session lives as long as the worktree (until PR merge/close or 7 days idle).</li>
+  <li><strong>Trigger paths.</strong> Two ways to call Casey back into an open PR: (1) <code>@casey</code> in the Slack thread where the PR was opened — the original UX surface; (2) GitHub <code>pull_request_review_comment</code> webhook hits the broker, which posts a system-author Casey message in the PR's Slack thread surfacing the reviewer's comment and asking if the user wants Casey to act. The user (not the reviewer) confirms with a 👍 — keeps the customer's Slack identity in the loop and prevents a compromised GitHub account from puppeting Casey directly.</li>
+  <li><strong>Quota.</strong> PR-review replies count against the same per-user PR quota (5/user/repo/day default), but each <em>reply session</em> consumes <strong>0.2 of a quota unit</strong> (so 5 PRs ≈ 25 follow-up replies). Rationale: iterative review is the highest-value, lowest-blast-radius interaction; treating each follow-up as a full PR exhausts the budget on a single review cycle.</li>
+  <li><strong>Reset escape hatch.</strong> <code>@casey reset</code> in the PR thread nukes the worktree, deletes the session, and re-creates both from the PR's branch HEAD with a fresh Claude context. One-line recovery when state is corrupted (failed merge, dirty worktree, hallucinated context). Audit-logged.</li>
+  <li><strong>Branch protection still gates merge.</strong> No matter how many review cycles Casey goes through, the merge requires a human review approval + CI green on the PR. Casey can push fixups to its own <code>rapidus/*</code> branch; the merge button stays on the human.</li>
+</ul>
 
 <h3>Strategy C — Remote / cloud sandbox (third-party compute)</h3>
 <p><strong>Where compute lives:</strong> a managed external sandbox service (E2B, BrowserBase, Daytona, Modal, etc.).</p>
@@ -1132,8 +1161,8 @@ Each chapter pair covers a frozen moment in the life of an Acme team after insta
 <ul>
   <li>Docker image + docker-compose + Slack app manifest + GitHub App manifest flow</li>
   <li>Per-customer install flow + bootstrap admin page + user-policy picker + repo-trust-mode picker</li>
-  <li>Admin UI: access requests, audit log, connectors list, user-policy card, repositories &amp; trust modes, system-health page + JSON endpoint</li>
-  <li>Built-in connectors (vendored): slack-mcp, github-mcp (per-customer GitHub App), linear-mcp, notion-mcp at pinned commits</li>
+  <li>Admin UI <strong>(4 screens for Foundation):</strong> Repositories (trust mode + per-repo quota), Channels (write-enabled toggle), Users (cap overrides + access requests), Audit (event log). Scheduler UI, MCP-server UI, role-matrix viewer, and connectors-list UI are <strong>deferred to weeks 4–12</strong>. System-health JSON endpoint ships in Foundation (page is week 4+).</li>
+  <li>Built-in connectors (vendored): slack-mcp, github-mcp (per-customer GitHub App), notion-mcp at pinned commits. <strong>linear-mcp deferred to v1.x</strong> — beta partner uses GitHub Issues; linear-mcp lands when a Linear-using partner shows up. github-mcp covers tickets (issues) + writes; notion-mcp covers docs/PRDs/runbooks (context).</li>
   <li><code>/register</code> + Postgres LISTEN/NOTIFY approval flow + auto-approve policies</li>
   <li><strong>Channel-scoped trust + per-user PR quota</strong> (default 5 PRs/user/repo/day) — keeps the default "auto-approve workspace members" policy safe by constraining the dev surface</li>
   <li>L3 reaction-confirm on write-effect tools that aren't covered by per-repo trust mode (Notion writes, Linear creates, cross-channel Slack posts)</li>
@@ -1152,14 +1181,14 @@ Each chapter pair covers a frozen moment in the life of an Acme team after insta
 <div class="card">
 <h3>Rest of v1 <span class="pill v1">weeks 4–12 (~12 weeks total)</span></h3>
 <ul>
-  <li><strong>Compute: Strategy B sandbox</strong> — bundled hardened container, one per repo, <strong>lazy-started with persistent <code>/workdir</code> volume</strong> (no warm pool — first touch per repo is slow, subsequent touches are 5–10s)</li>
-  <li><strong>Claude CLI runs inside the sandbox</strong> behind a cert-pinned egress proxy that allowlists only <code>api.anthropic.com</code>, with audit-logged bodies + per-turn size cap + rate limit</li>
+  <li><strong>Compute: Strategy B sandbox</strong> — bundled hardened container with <strong>bare clone + shared dep cache persistent per repo, ephemeral <code>git worktree</code> per active branch</strong> (parallel sandboxes by default; same-branch concurrent requests hit a small per-branch queue). First touch per repo is slow (~30–60s with a visible setup message); subsequent branches re-use the cache and are ready in 5–10s</li>
+  <li><strong>Claude CLI runs inside the sandbox</strong> behind an SPKI-pinned (current + rollover key) egress proxy that allowlists only <code>api.anthropic.com</code>, with audit-logged bodies + per-turn size cap + rate limit + release-CI drift check on the pin</li>
   <li><strong>Layered prompt-injection defenses:</strong> secret redaction on tool inputs to Claude + diff scan on outbound patches before broker push</li>
   <li><strong>casey-app process split:</strong> router (Slack + Claude orchestration, no creds) + broker (credentials, fixed-menu RPC: <code>openPR</code>, <code>pushBranch</code>, <code>commentOnIssue</code>). Branch allowlist enforced server-side in broker, not in caller code.</li>
   <li>Pre-built sandbox base images published to Docker Hub: <code>rapidussquad/sandbox:python-3.12</code>, <code>:node-20</code> (no <code>:fullstack</code> — post-v1)</li>
-  <li>Per-repo trust modes (<code>trusted-author</code> / <code>gated</code> / <code>read-only</code>) enforced at the broker boundary; branch-protection assertions on connector setup + daily re-check</li>
+  <li>Per-repo trust modes (<code>trusted-author</code> / <code>gated</code> / <code>read-only</code>) enforced at the broker boundary; branch-protection enforcement via GitHub webhook + daily re-check + 25h freshness rule on cached state (broker writes fail closed on stale state)</li>
   <li>PR storm cap (≥3 open Casey PRs in a repo pauses the repo) — second line behind per-user quota</li>
-  <li>Adversarial test suite (A1–A20 escape attempts) shipped as a regression target — runs in release CI</li>
+  <li><strong>Adversarial test suite — split into release-gate vs nightly.</strong> <strong>A1–A8</strong> (path escape, env scrub, bash-allowlist bypass, egress-proxy escape, secret-shaped string in diff, branch-protection-removed-mid-flight, prompt-injection-via-tool-content, broker-creds-leaked-to-sandbox) <strong>gate every release</strong> — ~8 minutes of CI per PR/tag. <strong>A9–A20</strong> run as a nightly cron against <code>main</code>, fail the build only on regression vs the prior night. Rationale: A1–A8 cover load-bearing controls (router/broker boundary, sandbox isolation, egress proxy, diff scan); A9–A20 cover defense-in-depth scenarios where a single-night blind spot is acceptable. Keeps release CI under 10 min instead of 25.</li>
   <li><strong>Hosted SSE MCP smoke tests</strong> in release CI + nightly cron (catches Notion etc. breakage before customers)</li>
   <li>Audit-log retention: nightly <code>casey prune</code> cron, default 90 days, configurable (JSONL archive-before-prune is post-v1)</li>
   <li>Scheduler UI + skipped-run notifications (cron persistence already shipped in foundation slice)</li>
@@ -1180,7 +1209,7 @@ Each chapter pair covers a frozen moment in the life of an Acme team after insta
   <li><strong>JSONL archive-before-prune toggle</strong> on the audit log — 1-in-20 feature. Defer. Buys back ~2 days.</li>
   <li><strong>Two-admin rule on high-risk tools</strong> — no customer has asked; branch protection + required PR review already cover the realistic threat. Add when a regulated customer requires a documented two-person rule. Buys back ~3 days.</li>
   <li><strong>Custom MCP server via URL paste</strong> — support tarpit (every customer's custom server breaks differently). Vendored set of 4 covers 80%+ at v1. Buys back ~1 week.</li>
-  <li><strong>Sandbox container warm pool</strong> — replaced by lazy containers + persistent volume. Add only if measured cold-start is a real customer problem.</li>
+  <li><strong>Sandbox container warm pool</strong> — replaced by bare-clone + dep-cache persistence with ephemeral per-branch worktrees. Cold-start is paid once per repo, not once per turn. Add a warm pool only if measured first-touch latency becomes a real customer problem.</li>
   <li><strong>Multi-replica HA for casey-router</strong> — single replica is fine for v1. <code>last_fired_at</code> covers restarts; <code>pg-boss</code>-backed scheduler swap is the post-v1 path for multi-replica.</li>
 </ul>
 <p class="muted" style="margin-top:8px">Net effect: ~3 weeks of work moved off the v1 plate, ~1 week added back for the new foundation items (role matrix, cron persistence, NOTICE, channel-scoped trust, per-user quota, threat-row docs). The ~2-week net surplus goes to actually finishing sandbox hardening — the thing that becomes an incident if half-done.</p>
@@ -1222,18 +1251,20 @@ Each chapter pair covers a frozen moment in the life of an Acme team after insta
   <li><strong>License:</strong> AGPL-3.0 + commercial exception. Small shops use AGPL free; enterprises whose legal teams reject AGPL pay for a commercial license. Same model as GitLab, MongoDB (pre-2018), Sentry, Mattermost.</li>
   <li><strong>NOTICE file:</strong> auto-generated from vendored deps via license-checker; lives in repo root + Docker image; regenerated in release CI (build fails if stale). One-time license audit before v1 ships.</li>
   <li><strong>Anthropic billing:</strong> customer brings their own Anthropic API key. No usage proxying through us; no shared liability for spend.</li>
-  <li><strong>Where Claude runs (v2.1):</strong> <strong>inside the sandbox container</strong>, behind a sidecar egress proxy that allowlists ONLY <code>api.anthropic.com</code> (cert-pinned, audit-logged, per-turn body cap + rate limit). Trades a single narrow network exception for a tight in-container edit→test loop. Layered with secret redaction on tool inputs + diff scan on outbound patches.</li>
+  <li><strong>LLM vendor (v1): Anthropic direct only.</strong> Egress proxy allowlists only <code>api.anthropic.com</code> (SPKI-pinned). AWS Bedrock and Google Vertex routing are <strong>deferred to v1.x</strong> — adding either requires extending the egress allowlist + SPKI pin set (an ops change, not a code change in Casey). <code>CLAUDE_CODE_USE_BEDROCK</code> / <code>CLAUDE_CODE_USE_VERTEX</code> env vars are dropped from <code>.env.example</code> and the README in v1 so we don't ship a configuration that the proxy will refuse.</li>
+  <li><strong>Where Claude runs (v2.1):</strong> <strong>inside the sandbox container</strong>, behind a sidecar egress proxy that allowlists ONLY <code>api.anthropic.com</code> (SPKI-pinned with current + rollover key, CI drift check, audit-logged, per-turn body cap + rate limit). Trades a single narrow network exception for a tight in-container edit→test loop. Layered with secret redaction on tool inputs + diff scan on outbound patches.</li>
   <li><strong>casey-app process split (v2.1):</strong> router (Slack + Claude orchestration, no creds) + broker (GitHub App key, OAuth refresh tokens, fixed-menu RPC). Branch allowlist (<code>rapidus/*</code>) enforced server-side in broker. Threat-row docs land in weeks 1–3; full process split lands in weeks 4–12.</li>
   <li><strong>GitHub App ownership:</strong> per-customer GitHub Apps via manifest flow. We never own or proxy a shared GitHub App.</li>
   <li><strong>Sandbox toolchain (v1):</strong> pre-built per-language base images (<code>python-3.12</code>, <code>node-20</code>) cover ~80% of customers. Custom <code>.casey/sandbox.Dockerfile</code> escape hatch and <code>:fullstack</code> combo image are post-v1.</li>
-  <li><strong>Sandbox lifecycle (v2.1):</strong> lazy-started, one per repo, with persistent <code>/workdir</code> docker volume. No warm pool — first touch per repo pays clone + dependency install (~30–60s with a visible "setting up" message), subsequent touches re-attach the volume in 5–10s. TTL eviction on the volume (default 14 days).</li>
-  <li><strong>MCP server pinning:</strong> vendor <code>github-mcp</code>, <code>linear-mcp</code>, <code>slack-mcp</code> at known commits. Hosted SSE MCPs (<code>notion-mcp</code>) cannot be vendored — pinned by URL + protocol version <strong>and</strong> covered by release-CI + nightly smoke tests that assert response shape.</li>
+  <li><strong>Sandbox lifecycle (post-v2.1, supersedes the original v2.1 model):</strong> bare clone + shared dependency cache persistent per repo; <code>git worktree</code> per active branch, ephemeral and parallel. Three devs on three branches = three sandboxes running concurrently, no <code>/workdir</code> contention. Worktree evicted on PR merge/close or 7 days idle; cache evicted after 30 days idle; bare clone removed only on connector disconnect. First touch per repo pays cold-start (~30–60s with visible setup message); subsequent branches re-use the cache and are ready in 5–10s. Same-branch concurrent requests hit a small per-branch queue (rare in practice). <strong>Why this replaces the v2.1 "one sandbox per repo, persistent <code>/workdir</code>" decision:</strong> a single <code>/workdir</code> can only hold one branch checked out at a time — correctness-broken for any team where developers work on parallel feature branches.</li>
+  <li><strong>MCP server pinning:</strong> vendor <code>github-mcp</code> and <code>slack-mcp</code> at known commits. <code>linear-mcp</code> deferred to v1.x (beta partner uses GitHub Issues; lands when a Linear-using partner shows up — at which point it follows the same vendored-at-pinned-commit pattern). Hosted SSE MCPs (<code>notion-mcp</code>) cannot be vendored — pinned by URL + protocol version <strong>and</strong> covered by release-CI + nightly smoke tests that assert response shape.</li>
   <li><strong>Audit-log retention:</strong> default 90 days, configurable per install. Hard delete on prune (<code>casey prune</code> nightly cron). External S3 / SIEM sink and JSONL archive-before-prune toggle are post-v1.</li>
+  <li><strong>Audit-events schema (v1, stable contract for v1.x external sink):</strong> v1 ships a documented <code>audit_events</code> Postgres table with a stable shape — <code>(id, ts, actor_type, actor_id, action, target_repo, target_resource, payload_json, request_id, session_id)</code> — and an append-only invariant. External SIEM / Splunk / S3 streaming is post-v1, but the schema is committed in v1 so v1.x can add a sink without a breaking migration. Regulated-buyer story: "the events you'd correlate already exist in the right shape; we're adding the pipe in v1.x" rather than "we'll design that when you ask."</li>
   <li><strong>Postgres role matrix (v2.1):</strong> two database roles — <code>casey_bot</code> (SELECT-mostly, INSERT-only on <code>audit_log</code>, no UPDATE on <code>repo_trust</code> / <code>connectors</code> / <code>user_policy</code>) vs <code>casey_admin</code> (used by the admin UI for writes). Enforced via GRANT/REVOKE in v1 migrations.</li>
   <li><strong>Backup / DR:</strong> documented Postgres backup procedure + <code>casey backup</code> CLI wrapper.</li>
   <li><strong>Scheduler HA (v2.1):</strong> <code>node-cron</code> with <code>last_fired_at</code> persisted in Postgres; missed runs (within a 1h ceiling) replay on router startup. Multi-replica via <code>pg-boss</code> is post-v1.</li>
   <li><strong>User onboarding policy:</strong> three modes (auto-approve workspace / auto-approve domain / manual only). Default: auto-approve workspace members. <code>/register</code> always works as a manual fallback.</li>
-  <li><strong>PR gating:</strong> trusted-author mode by default, with per-repo overrides (<code>trusted-author</code> / <code>gated</code> / <code>read-only</code>). Branch protection on <code>main</code> + required human review are the actual merge gate.</li>
+  <li><strong>PR gating:</strong> trusted-author mode by default, with per-repo overrides (<code>trusted-author</code> / <code>gated</code> / <code>read-only</code>). Branch protection on <code>main</code> + required human review are the actual merge gate. Protection state is webhook-monitored (instant detection of weakening), daily re-checked (safety net for dropped webhooks), and cached with a 25h freshness rule (broker writes refuse on stale state and re-verify).</li>
   <li><strong>Channel-scoped trust + per-user quota (v2.1):</strong> Casey only honors write requests in admin-marked write-enabled channels; daily cap of 5 PRs/user/repo by default. Keeps the default "auto-approve workspace members" policy safe by separating the <code>dev</code> attack surface from the <code>admin</code> trust.</li>
   <li><strong>Insider-threat boundary:</strong> customer's <em>admin</em> role is fully trusted; <em>dev</em> role is partially trusted (constrained by channel + quota); insider-threat scenarios at the admin level are out of scope (see §6 trust boundary).</li>
   <li><strong>Compute strategies (v2.1):</strong> Strategy B is the only first-class compute path from week 4 onward. Strategy A persists as invisible degraded-mode fallback (auto-engaged when sandbox is unhealthy, with circuit breaker + Slack/health-page surfacing). Customers don't pick A. Strategy C (remote sandbox) remains post-v1.</li>

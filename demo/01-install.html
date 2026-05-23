@@ -422,7 +422,7 @@ Resolving deltas: 100% (1812/1812), done.
               </tbody>
             </table>
             <p style="color:var(--mute);font-size:12.5px;margin:14px 0 0">
-              Branch protection check: every <code>trusted-author</code> repo must have required reviews + required CI + no force-push on <code>main</code>. We re-check this daily.
+              Branch protection check: every <code>trusted-author</code> repo must have required reviews + required CI + no force-push on <code>main</code>. We subscribe to GitHub <code>repository</code> + <code>branch_protection_rule</code> webhooks so changes pause Casey within seconds, with a daily re-check as a fallback (25h freshness rule — if we haven't heard from GitHub in 25h, we treat the trust state as stale and pause writes).
             </p>
             <div style="margin-top:18px">
               <a class="btn" href="#">Save and finish setup →</a>
